@@ -1,13 +1,17 @@
 <!doctype html>
 <html lang="pt-BR">
+<!-- 1. HTML: descreve a estrutura da página. O head configura idioma de caracteres, tamanho da tela e título; o body contém o conteúdo visível. -->
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tarkov – Itens, Hideout e Trocas</title>
+<!-- 2. CSS: define a aparência. Os estilos ficam neste arquivo para permitir abrir o aplicativo diretamente no navegador. -->
 <style>
+/* Tema: variáveis CSS iniciadas por -- guardam as cores. var(--gold), por exemplo, reutiliza a cor de destaque em vários componentes. */
 :root{--bg:#14151a;--panel:#1d1f26;--panel2:#262932;--line:#343845;--txt:#e6e3d8;--mut:#8d909c;--gold:#e8c14d;--grn:#6fcf7f;--red:#e0675f;--acc:#c9a227}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
+/* Flexbox organiza controles lado a lado e permite quebra de linha. sticky mantém o cabeçalho no topo durante a rolagem. */
 header{position:sticky;top:0;z-index:10;background:#101116;border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 h1{font-size:17px;margin:0;color:var(--gold);letter-spacing:.5px}
 .sp{flex:1}
@@ -31,8 +35,10 @@ main{padding:14px 16px;max-width:1200px;margin:0 auto}
 .category-count{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
 .category-filter[aria-pressed=true] .category-count{color:var(--gold)}
 label.ck{display:flex;gap:6px;align-items:center;color:var(--mut)}
+/* CSS Grid divide cada linha em colunas: estrela, imagem, nome e preços. 1fr usa o espaço que sobrar; px define uma largura fixa. */
 .row{display:grid;grid-template-columns:34px 48px 1fr 170px 130px 90px;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:6px}
 .row.hd{background:transparent;border:none;color:var(--mut);font-size:12px;padding-top:0}
+/* Classes representam estados visuais: hl destaca uma marcação; on identifica um botão ativo; complete indica quantidade suficiente. */
 .row.hl,.chip.hl,.card.hl{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;background:#2a2615}
 .row img{width:48px;height:48px;object-fit:contain;background:#0d0e12;border-radius:4px}
 .name small{color:var(--mut);margin-left:6px}
@@ -62,11 +68,13 @@ input.q{width:70px}
 .row.marked-row,.row.marked-head{grid-template-columns:34px 48px minmax(0,1fr) 135px 210px 135px}
 .marked-row.complete{opacity:.65}
 .marked-remaining{margin-top:4px;font-weight:600}
+/* Responsividade: estas regras entram em ação em telas de até 800 px. A segunda regra mantém Tenho, Faltam e custo visíveis nos Marcados. */
 @media(max-width:800px){.row{grid-template-columns:30px 40px 1fr 110px}.row>:nth-child(5),.row>:nth-child(6){display:none}}
 @media(max-width:800px){.row.marked-row,.row.marked-head{grid-template-columns:30px 40px minmax(0,1fr) 110px}.row.marked-row>:nth-child(5){display:flex;grid-column:3 / -1;flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px}.row.marked-row>:nth-child(6){display:block;grid-column:3 / -1}.marked-row .q{width:90px}}
 </style>
 </head>
 <body>
+<!-- 3. Controles fixos: os atributos id permitem que o JavaScript encontre o status, a seleção PVE/PVP e o botão de atualização. -->
 <header>
   <h1>⚔ TARKOV · Itens, Hideout &amp; Trocas</h1>
   <span class="sp"></span>
@@ -78,22 +86,36 @@ input.q{width:70px}
   </select>
   <button id="refresh">↻ Atualizar preços</button>
 </header>
+<!-- data-tab associa cada botão ao nome de uma aba. Esses atributos personalizados são lidos no JavaScript como elemento.dataset.tab. -->
 <nav id="tabs">
   <button data-tab="marked">⭐ Marcados<span class="badge" id="nmarked">0</span></button>
   <button data-tab="items">Itens</button>
   <button data-tab="hideout">Hideout</button>
   <button data-tab="barters">Trocas</button>
 </nav>
+<!-- Área dinâmica: render() coloca aqui o HTML da aba selecionada. O navegador representa os elementos da página por meio do DOM. -->
 <main id="view"></main>
 
+<!-- 4. JavaScript: carrega dados, faz cálculos, responde às ações e salva o progresso. Usa recursos nativos do navegador, sem bibliotecas externas. Consulte GUIA-DO-CODIGO.md. -->
 <script>
+// CONFIGURAÇÃO E FUNÇÕES AUXILIARES
+// API é o endereço público dos dados. REFRESH_MS representa cinco minutos em milissegundos; será usado pelo temporizador no fim do arquivo.
 const API = 'https://json.tarkov.dev';
 const REFRESH_MS = 5 * 60 * 1000;
+// $ é um atalho criado neste projeto para document.querySelector; não é jQuery.
+// Um seletor como $('#status') encontra o elemento que possui id="status".
 const $ = s => document.querySelector(s);
+// esc transforma caracteres especiais em entidades HTML antes de inserir textos nos templates.
+// Isso ajuda a impedir que nomes vindos da API sejam interpretados como tags ou atributos.
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// fmt prepara valores para exibição: arredonda, usa separadores pt-BR e acrescenta ₽.
+// null significa preço desconhecido e aparece como um traço; não é tratado como preço zero.
 const fmt = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('pt-BR') + ' ₽';
 
 // ---------- estado persistido ----------
+// ESTADO SALVO: DEF contém valores iniciais; S contém as escolhas e o progresso da pessoa.
+// JSON.parse converte o texto do localStorage em objeto. Object.assign combina os valores salvos com os padrões.
+// try/catch permite iniciar mesmo se o navegador bloquear a leitura ou se o texto salvo estiver inválido.
 const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, mode: 'pve', tab: 'items' };
 let S = (() => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem('tkv-app') || '{}')); } catch (e) { return { ...DEF }; } })();
 if (!['regular', 'pve'].includes(S.mode)) S.mode = 'pve';
@@ -109,6 +131,8 @@ for (const [id, mark] of Object.entries(S.marked)) {
 }
 if (!S.done || typeof S.done !== 'object') S.done = {};
 if (!S.hideoutOpen || typeof S.hideoutOpen !== 'object' || Array.isArray(S.hideoutOpen)) S.hideoutOpen = {};
+// localStorage guarda texto neste perfil do navegador e neste endereço/arquivo. JSON.stringify converte S em texto.
+// A gravação é imediata quando save() é chamada; ela não envia suas marcações ao GitHub nem à API de preços.
 const save = () => {
   const status = $('#storage-status');
   try {
@@ -122,7 +146,11 @@ const save = () => {
 };
 
 // ---------- dados ----------
+// DADOS EM MEMÓRIA: DB guarda as respostas da API apenas enquanto a página está aberta.
+// DB.map é um Map: permite localizar um item pelo ID usando get(id), sem percorrer a lista inteira.
 const DB = { items: [], map: new Map(), stations: [], barters: [], updated: null, errors: [] };
+// UI guarda controles temporários: busca, ordenação e limite de resultados. As buscas não são salvas ao fechar.
+// hideoutOpen é restaurado de S; as categorias selecionadas ficam diretamente em S.categories e são salvas.
 const UI = { limit: 150, q: '', sort: 'price', onlyMarked: false, bq: '', btrader: '', bsort: 'profit', bOnlyMarked: false, hq: '', hideoutOpen: new Map(Object.entries(S.hideoutOpen)) };
 
 // As categorias vêm da classificação dos itens na API, sem depender do nome traduzido.
@@ -143,6 +171,8 @@ const CATEGORIES = [
 ];
 S.categories = Array.isArray(S.categories)
   ? [...new Set(S.categories.filter(id => CATEGORIES.some(category => category.id === id)))] : [];
+// CATEGORIZAÇÃO: percorre a categoria de um item e suas categorias superiores (parent).
+// Set guarda valores sem repetição; visited também evita um ciclo se a classificação vier com referências circulares.
 function itemGroups(item, taxonomy) {
   const slugs = new Set();
   for (const categoryId of (item.categories || [])) {
@@ -164,7 +194,11 @@ function toggleCategory(id) {
   UI.limit = 150;
   save(); render();
 }
+// Com várias categorias selecionadas, some() aceita o item se ele pertencer a pelo menos uma delas (OU).
+// A busca por texto e a opção de marcados são combinadas com esse resultado em viewItems() (E).
 const matchesCategory = item => !S.categories.length || S.categories.some(id => item.groups.includes(id));
+// COMPONENTE DE FILTROS: conta os resultados por categoria e monta os botões usando template literals.
+// Templates usam crases e expressões com dólar e chaves. aria-pressed informa se cada botão está selecionado.
 function categoryFilters(items) {
   const counts = new Map(CATEGORIES.map(category => [category.id, 0]));
   items.forEach(item => item.groups.forEach(id => counts.set(id, (counts.get(id) || 0) + 1)));
@@ -176,6 +210,9 @@ function categoryFilters(items) {
 }
 
 // A API JSON mantém referências por ID e traduções em arquivos separados.
+// CONSULTA HTTP: fetch faz uma requisição GET, por exemplo /pve/items.
+// async/await permite aguardar respostas sem bloquear a interação com a página. response.json() lê o conteúdo JSON.
+// AbortController cancela a espera após 25 segundos; finally limpa o temporizador tanto no sucesso quanto no erro.
 async function getJSON(mode, endpoint) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25000);
@@ -192,6 +229,8 @@ async function getJSON(mode, endpoint) {
     throw new Error(endpoint + ': ' + error.message);
   } finally { clearTimeout(timeout); }
 }
+// TRADUÇÕES: Promise.all inicia a consulta principal e as traduções em português e inglês em paralelo.
+// Se uma tradução falhar, usa um objeto vazio. translate procura português, inglês, nome alternativo e, por último, a própria chave.
 async function localized(mode, endpoint) {
   const [data, pt, en] = await Promise.all([
     getJSON(mode, endpoint),
@@ -200,6 +239,8 @@ async function localized(mode, endpoint) {
   ]);
   return { data, translate: (key, fallback) => pt[key] || en[key] || fallback || key };
 }
+// NORMALIZAÇÃO: adapta a estrutura recebida para o formato que a interface usa.
+// map() transforma cada item em um novo objeto. Aqui também são associados categorias, comerciantes e preços válidos.
 function normalizeItems(source, translate, traders, taxonomy = {}) {
   if (!source || typeof source !== 'object') throw new Error('Lista de itens inválida');
   const items = Object.values(source).map(item => ({
@@ -219,6 +260,8 @@ function normalizeItems(source, translate, traders, taxonomy = {}) {
   if (!items.length) throw new Error('A API retornou uma lista vazia');
   return items;
 }
+// ATUALIZAÇÃO COMPLETA: cada carregamento recebe uma versão. Se outra atualização começar antes do fim,
+// a resposta antiga será ignorada para não sobrescrever a seleção atual, especialmente ao trocar PVE/PVP.
 let loadVersion = 0;
 async function loadAll() {
   const version = ++loadVersion, mode = S.mode;
@@ -230,6 +273,8 @@ async function loadAll() {
     Object.assign(DB, { items: [], map: new Map(), stations: [], barters: [], updated: null, mode });
     render();
   }
+// Promise.allSettled espera todas as consultas e informa quais deram certo e quais falharam.
+// Assim, uma falha em Trocas não impede o uso dos Itens que carregaram corretamente.
   const results = await Promise.allSettled([
     localized(mode, 'items'), localized(mode, 'hideout'),
     getJSON(mode, 'barters'), localized(mode, 'traders')
@@ -252,6 +297,8 @@ async function loadAll() {
       DB.updated = new Date();
     } catch (error) { DB.errors.push('Itens: ' + error.message); }
   }
+// A API devolve referências de itens por ID. Esta função troca o ID pelo objeto completo de DB.map
+// para que os requisitos do Hideout e das trocas possam mostrar nome, imagem e preço.
   const ref = requirement => ({ ...requirement, item: DB.map.get(requirement.item) || {
     id: requirement.item, name: 'Item ' + requirement.item, shortName: '', iconLink: ''
   }});
@@ -277,6 +324,9 @@ async function loadAll() {
 }
 
 // ---------- helpers de preço ----------
+// REGRA DE ESTIMATIVA: tenta última oferta do flea, média de 24h, menor compra no comerciante e melhor venda.
+// É uma referência de valor, não uma garantia de compra: ofertas de comerciantes podem exigir nível ou desbloqueio.
+// A moeda rublo vale 1 nesta conta; preços ausentes retornam null.
 const price = it => {
   if (!it) return null;
   if (it.id === '5449016a4bdc2d6f028b456f') return 1;
@@ -286,6 +336,8 @@ const price = it => {
   return offers.length ? Math.min(...offers) : (traderSell(it).best || null);
 };
 const multiplyPrice = (value, count) => value == null ? null : value * count;
+// reduce() soma valores. Se algum preço estiver desconhecido, o total também fica desconhecido
+// para evitar apresentar uma estimativa incompleta como se fosse o custo total.
 const sumPrices = values => values.some(value => value == null) ? null : values.reduce((sum, value) => sum + value, 0);
 const costOf = refs => sumPrices(refs.map(r => multiplyPrice(priceById(r.item.id), r.count)));
 const priceById = id => price(DB.map.get(id));
@@ -297,16 +349,23 @@ function traderSell(it) {
   }
   return { best, who };
 }
+// MARCAÇÕES INDEPENDENTES: o ID de um item sozinho identifica a marcação geral.
+// No Hideout, a chave combina estação + nível + item: hideout:estacao:nivel:item.
+// Por isso o mesmo item pode existir em duas construções com quantidades e estoques separados.
 const markKey = (id, source) => source ? 'hideout:' + source.stationId + ':' + source.level + ':' + id : id;
 const isMarked = (id, source) => !!S.marked[markKey(id, source)];
 const hasMarkedItem = id => Object.entries(S.marked).some(([key, mark]) => (mark.itemId || key) === id);
 const hideoutSource = (station, level) => ({ stationId: station.id, stationName: station.name, level });
+// toggleMark alterna uma marcação: remove se existir; cria se não existir.
+// qty é a necessidade da origem; owned começa em zero. source identifica a construção quando houver.
 function toggleMark(id, qty, source) {
   const key = markKey(id, source);
   if (S.marked[key]) delete S.marked[key];
   else S.marked[key] = { itemId: id, qty: qty || 1, owned: 0, ...(source ? { source } : {}) };
   save();
 }
+// O botão de marcar um nível usa addMark: garante a marcação sem desmarcar o que já existe.
+// Math.max evita somar novamente ao clicar duas vezes; o valor owned já informado é preservado.
 function addMark(id, qty, source) {
   const key = markKey(id, source), m = S.marked[key];
   if (m) m.qty = Math.max(m.qty, qty || 1); else S.marked[key] = { itemId: id, qty: qty || 1, owned: 0, ...(source ? { source } : {}) };
@@ -314,6 +373,9 @@ function addMark(id, qty, source) {
 }
 
 // ---------- componentes ----------
+// COMPONENTE REUTILIZÁVEL: chip monta um pequeno cartão de item no Hideout ou nas trocas.
+// Os atributos data-act, data-id e data-qty dizem ao evento de clique o que fazer.
+// Quando source existe, data-station-id e data-level identificam a construção exata.
 function chip(ref, count, source) {
   const it = ref.item, hl = isMarked(it.id, source);
   const full = DB.map.get(it.id);
@@ -323,6 +385,9 @@ function chip(ref, count, source) {
 }
 
 // ---------- abas ----------
+// ABA ITENS: filter() seleciona resultados; sort() ordena; slice() limita o que é exibido.
+// O limite inicial de 150 evita criar milhares de elementos de uma vez. Mostrar mais aumenta UI.limit.
+// Esta função devolve uma string HTML; render() é quem a coloca na página.
 function viewItems() {
   const q = UI.q.trim().toLowerCase();
   const matchingItems = DB.items.filter(i => (!q || (i.name + ' ' + i.shortName).toLowerCase().includes(q)) && (!UI.onlyMarked || hasMarkedItem(i.id)));
@@ -357,13 +422,19 @@ function viewItems() {
   }).join('') || '<div class="empty">Nenhum item encontrado.</div>'}</div>${total > UI.limit ? '<button data-act="moreItems">Mostrar mais itens</button>' : ''}<p class="mut">Preços da última coleta do tarkov.dev; podem diferir do jogo. — indica preço indisponível. Estimativas usam flea, compra no comerciante ou venda ao comerciante, conforme disponibilidade.</p>`;
 }
 
+// QUANTIDADES: faltam = máximo entre zero e (necessidade - quantidade que tenho).
+// Exemplo: qty 10 e owned 4 resultam em 6. A necessidade vem da marcação e não é editável em Marcados.
 const remaining = mark => Math.max(0, mark.qty - mark.owned);
+// Prepara as linhas de Marcados. itemId identifica o produto; a chave id pode identificar uma construção específica.
+// sub calcula o custo só do que falta; full calcula o custo da necessidade inteira. Um item completo tem custo restante zero.
 function markedRows() {
   return Object.entries(S.marked).map(([id, m]) => {
     const it = DB.map.get(m.itemId || id), p = price(it), missing = remaining(m);
     return { id, it, m, p, missing, sub: missing === 0 ? 0 : multiplyPrice(p, missing), full: multiplyPrice(p, m.qty) };
   }).sort((a, b) => ((a.missing === 0) - (b.missing === 0)) || ((a.it?.name || '').localeCompare(b.it?.name || '', 'pt-BR')));
 }
+// ATUALIZAÇÃO PARCIAL DO DOM: altera apenas textos, totais e a classe complete enquanto a pessoa digita.
+// Isso evita recriar o campo Tenho e perder o foco durante a digitação. textContent insere texto, sem interpretar HTML.
 function updateMarkedNumbers() {
   const rows = markedRows(), byId = new Map(rows.map(row => [row.id, row]));
   if (!$('#marked-cost-remaining')) return;
@@ -379,6 +450,8 @@ function updateMarkedNumbers() {
     element.querySelector('[data-remaining-cost]').textContent = fmt(row.sub);
   });
 }
+// Lê apenas o campo Tenho, converte o texto em número e elimina valores negativos, decimais ou não finitos.
+// Depois salva e recalcula os valores visíveis, mantendo cada marcação independente.
 function setMarkedQuantity(target) {
   if (target.dataset.act !== 'owned') return;
   const mark = S.marked[target.dataset.id];
@@ -388,6 +461,8 @@ function setMarkedQuantity(target) {
   save();
   updateMarkedNumbers();
 }
+// ABA MARCADOS: combina produto, origem, estoque e custo. Duas construções podem ter linhas para o mesmo produto.
+// O campo Tenho edita owned; Faltam é um resultado calculado. aria-live anuncia alterações para leitores de tela.
 function viewMarked() {
   const rows = markedRows();
   if (!rows.length) return '<div class="empty">Nenhum item marcado ainda.<br>Use a ★ na aba Itens, ou clique nos itens das abas Hideout e Trocas.</div>';
@@ -404,6 +479,8 @@ function viewMarked() {
     <div class="p"><small>Custo restante</small><span data-remaining-cost>${fmt(sub)}</span></div></div>`).join('')}`;
 }
 
+// ABA HIDEOUT: organiza estações e níveis. O elemento HTML details cria a seção expansível; summary é seu título.
+// A origem passada a chip inclui a estação e o nível. Os estados open são restaurados para a construção continuar aberta.
 function viewHideout() {
   const q = UI.hq.trim().toLowerCase();
   let out = `<div class="bar"><input type="search" id="hq" placeholder="Buscar estação ou item de requisito…" value="${esc(UI.hq)}">
@@ -432,6 +509,8 @@ function viewHideout() {
   return out;
 }
 
+// ABA TROCAS: estima custo dos itens entregues e valor dos recebidos. A diferença é uma comparação de valores,
+// não lucro garantido: esta conta não desconta taxas nem confirma disponibilidade ou desbloqueios.
 function viewBarters() {
   const q = UI.bq.trim().toLowerCase();
   const traders = [...new Set(DB.barters.map(b => b.trader.name))].sort();
@@ -465,6 +544,9 @@ function viewBarters() {
 }
 
 // ---------- render ----------
+// RENDERIZAÇÃO: escolhe a função da aba atual e substitui o conteúdo de #view usando innerHTML.
+// Antes da troca, registra as estações abertas; depois restaura o foco e a posição do cursor nos campos de busca.
+// Como innerHTML interpreta tags, textos externos interpolados nos templates devem passar por esc().
 function render() {
   // A lista é recriada ao marcar itens; conserva cada estação aberta ou fechada.
   let changed = false;
@@ -490,6 +572,9 @@ function render() {
 }
 
 // ---------- eventos ----------
+// EVENTOS: addEventListener registra funções que o navegador chama em resposta às ações.
+// O evento toggle de details é ouvido com captura (true) porque não se propaga como um clique.
+// A verificação isConnected ignora seções antigas removidas durante uma renderização.
 document.addEventListener('toggle', e => {
   const details = e.target;
   if (!details.isConnected || !details.matches('details[data-station]')) return;
@@ -499,6 +584,9 @@ document.addEventListener('toggle', e => {
   S.hideoutOpen[id] = details.open;
   save();
 }, true);
+// DELEGAÇÃO DE EVENTOS: um ouvinte no document atende os botões, inclusive os criados depois por render().
+// closest encontra o elemento com data-act mesmo quando o clique foi numa imagem ou texto dentro dele.
+// dataset.act indica a ação; dataset.stationId e dataset.level recuperam a origem do Hideout.
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act;
@@ -523,6 +611,8 @@ document.addEventListener('click', e => {
   else if (a === 'clearHave') { for (const k of Object.keys(S.marked)) if (remaining(S.marked[k]) === 0) delete S.marked[k]; save(); render(); }
   else if (a === 'clearAll') { if (confirm('Remover todos os itens marcados?')) { S.marked = {}; save(); render(); } }
 });
+// change trata escolhas concluídas: confirmação de Tenho, níveis concluídos, ordenação e filtros.
+// As mudanças em S chamam save(); as opções temporárias de UI são redesenhadas sem gravação permanente.
 document.addEventListener('change', e => {
   const t = e.target; const a = t.dataset && t.dataset.act;
   if (a === 'owned') {
@@ -537,6 +627,8 @@ document.addEventListener('change', e => {
   else if (t.id === 'bsort') { UI.bsort = t.value; render(); }
   else if (t.id === 'bOnlyMarked') { UI.bOnlyMarked = t.checked; render(); }
 });
+// input acontece durante a digitação. Tenho é salvo e recalculado imediatamente.
+// Para as buscas, o debounce cancela a espera anterior e aguarda 200 ms sem digitação antes de filtrar, reduzindo redesenhos.
 let deb;
 document.addEventListener('input', e => {
   if (e.target.dataset?.act === 'owned' && S.marked[e.target.dataset.id]) {
@@ -548,11 +640,15 @@ document.addEventListener('input', e => {
   clearTimeout(deb);
   deb = setTimeout(() => { UI[id] = e.target.value; UI.limit = 150; render(); }, 200);
 });
+// CONTROLES FIXOS: estes elementos já existem no HTML inicial, então recebem ouvintes diretamente.
+// Trocar modo salva a preferência e busca dados novos; trocar aba salva a escolha e redesenha a área principal.
 $('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { S.tab = b.dataset.tab; save(); render(); } });
 $('#refresh').addEventListener('click', loadAll);
 $('#mode').value = S.mode;
 $('#mode').addEventListener('change', e => { S.mode = e.target.value; save(); loadAll(); });
 
+// INICIALIZAÇÃO: grava o estado validado, desenha a tela inicial e começa a consulta dos dados.
+// setInterval repete loadAll a cada REFRESH_MS enquanto a página permanece aberta.
 save();
 render();
 loadAll();

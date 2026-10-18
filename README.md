@@ -27,6 +27,10 @@ Use o mesmo arquivo ou endereço no mesmo perfil do navegador para continuar de 
 
 `index.html` contém a interface, os estilos e o comportamento da aplicação. Não há etapa de compilação.
 
+## Aprender com o código
+
+O `index.html` inclui comentários em português nas principais partes de HTML, CSS e JavaScript. Comece pelo [guia do código](GUIA-DO-CODIGO.md), com um mapa das funções, explicações das ferramentas, exemplos de cálculos e exercícios para experimentar.
+
 ## Créditos
 
 Dados e imagens fornecidos pelo projeto [tarkov.dev](https://tarkov.dev/). Escape from Tarkov e seus materiais pertencem à Battlestate Games. Este é um projeto independente, sem vínculo oficial com o jogo.
