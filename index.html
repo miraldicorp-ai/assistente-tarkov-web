@@ -43,6 +43,8 @@ label.ck{display:flex;gap:6px;align-items:center;color:var(--mut)}
 .row img{width:48px;height:48px;object-fit:contain;background:#0d0e12;border-radius:4px}
 .name small{color:var(--mut);margin-left:6px}
 .p small{display:block;color:var(--mut)}
+/* Mantém nvl e número juntos ao lado do preço. */
+.level-tag{white-space:nowrap;color:var(--mut);font-size:12px}
 .star{font-size:20px;line-height:1;background:transparent;border:none;color:var(--mut);padding:2px}
 .star.on{color:var(--gold)}
 .mut{color:var(--mut)}.pos{color:var(--grn)}.neg{color:var(--red)}
@@ -251,6 +253,8 @@ function normalizeItems(source, translate, traders, taxonomy = {}) {
     updated: item.lastScan || item.updated,
     lastLowPrice: item.lastLowPrice > 0 ? item.lastLowPrice : null,
     avg24hPrice: item.avg24hPrice > 0 ? item.avg24hPrice : null,
+    // Requisito informado pela API; null mantém explícita a ausência de informação.
+    minLevelForFlea: item.minLevelForFlea ?? null,
     buyFromTrader: (item.buyFromTrader || []).map(offer => ({
   ...offer,
   traderName: traders.get(offer.trader)?.name || 'Comerciante'
@@ -389,29 +393,27 @@ function chip(ref, count, source) {
 // Monta a comparação de compras de um item.
 function purchaseComparison(item) {
   const fleaPrice = item.lastLowPrice || item.avg24hPrice;
-  const fleaLabel = item.lastLowPrice
-    ? 'Flea · última coleta'
-    : 'Flea · média de 24h';
-
+  const fleaLabel = item.lastLowPrice ? 'Flea · última coleta' : 'Flea · média de 24h';
   const offers = (item.buyFromTrader || [])
     .filter(offer => offer.priceRUB > 0)
     .sort((a, b) => a.priceRUB - b.priceRUB);
 
+  // O preço e seu nível ficam na mesma linha; cada tipo de nível tem uma descrição.
   const traderRows = offers.map(offer => `
     <div class="p">
-      ${esc(offer.traderName)} · ${fmt(offer.priceRUB)}
-      <small>
-        Nível do comerciante:
-        ${offer.minTraderLevel ?? 'não informado'}
-        ${offer.taskUnlock ? ' · Exige desbloqueio por missão' : ''}
-      </small>
+      ${esc(offer.traderName)} · <span class="pos">${fmt(offer.priceRUB)}</span>
+      <span class="level-tag" title="Nível de lealdade do comerciante">· nvl ${esc(offer.minTraderLevel ?? '?')}</span>
+      ${offer.taskUnlock ? '<small>Exige desbloqueio por missão</small>' : ''}
     </div>
   `).join('');
 
   return `
     <details class="purchase-comparison">
       <summary>Comparar compras</summary>
-      <div class="p">${fleaLabel}: ${fmt(fleaPrice)}</div>
+      <div class="p">
+        ${fleaLabel}: ${fmt(fleaPrice)}
+        <span class="level-tag" title="Nível do jogador para acesso ao flea">· nvl ${esc(item.minLevelForFlea ?? '?')}</span>
+      </div>
       ${traderRows || '<p class="mut">Nenhuma oferta de comerciante disponível.</p>'}
     </details>
   `;
@@ -453,7 +455,7 @@ function viewItems() {
   ${purchaseComparison(i)}
 </div>
       <div class="p">${fmt(i.lastLowPrice)}<small>média 24h: ${fmt(i.avg24hPrice)}</small></div>
-      <div class="p">${t.best ? fmt(t.best) : '—'}<small>${esc(t.who)}</small></div>
+      <div class="p"><span class="pos">${t.best ? fmt(t.best) : '—'}</span><small>${esc(t.who)}</small></div>
       <div class="p">${fmt(slot(i))}</div></div>`;
   }).join('') || '<div class="empty">Nenhum item encontrado.</div>'}</div>${total > UI.limit ? '<button data-act="moreItems">Mostrar mais itens</button>' : ''}<p class="mut">Preços da última coleta do tarkov.dev; podem diferir do jogo. — indica preço indisponível. Estimativas usam flea, compra no comerciante ou venda ao comerciante, conforme disponibilidade.</p>`;
 }
