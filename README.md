@@ -13,7 +13,7 @@ Aplicação em português para consultar itens e preços de Escape from Tarkov e
 - Guias de apoio por objetivo, com imagens de referência da missão e dos itens, condições de execução e acesso à Wiki e aos mapas.
 - Progresso de missões salvo separadamente para PVE e PVP, com filtros por nível e conclusão.
 - Salvamento automático de marcações e progresso no navegador.
-- Aba Raid com missões selecionadas e itens agrupados em um stash com espaços proporcionais ao tamanho do item.
+- Aba Raid com missões selecionadas e itens agrupados em um stash de quatro colunas, com novas linhas automáticas e largura ajustada à tela.
 
 ## Como usar
 

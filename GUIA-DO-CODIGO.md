@@ -182,7 +182,7 @@ As instruções por tipo são guias de apoio, não percursos conferidos missão 
 
 `setRaidQuest()` guarda as missões escolhidas em `S.raidQuests[S.mode]`. `viewRaid()` utiliza `questExecutionGuide()` para mostrar o mesmo conteúdo da aba Missões. Cada missão é um elemento HTML `details`, e o estado aberto fica salvo em `S.questOpen`.
 
-`raidItemRows()` reutiliza `markedRows()` para somar itens iguais de várias origens. O CSS Grid desenha o stash: `grid-column: span` e `grid-row: span` ocupam as células correspondentes à largura e altura do item. O número de linhas se ajusta automaticamente à quantidade de itens, e as colunas diminuem em telas menores.
+`raidItemRows()` reutiliza `markedRows()` para somar itens iguais de várias origens. O CSS Grid desenha quatro colunas com `repeat(4, minmax(0, 1fr))`: cada item ocupa uma posição e novas linhas surgem automaticamente. As colunas encolhem conforme a tela, sem uma largura mínima que provoque rolagem horizontal. As imagens mantêm suas proporções com `object-fit: contain`.
 
 `raidCollectItem()` chama `collectOne(id, 'raid')` para somar uma unidade. Ao completar, as marcações originais são removidas e uma ficha é salva em `S.raidCollected[S.mode]`, com estado `complete` (verde). No clique seguinte o estado passa para `confirmed`, ainda verde; no próximo a ficha é apagada. Marcar uma nova necessidade do mesmo produto limpa a ficha anterior. A coleta pela aba Marcados continua removendo o item assim que ele é completado.
 
