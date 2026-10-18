@@ -13,6 +13,7 @@ Aplicação em português para consultar itens e preços de Escape from Tarkov e
 - Guias de apoio por objetivo, com imagens de referência da missão e dos itens, condições de execução e acesso à Wiki e aos mapas.
 - Progresso de missões salvo separadamente para PVE e PVP, com filtros por nível e conclusão.
 - Salvamento automático de marcações e progresso no navegador.
+- Aba Raid com missões selecionadas e itens agrupados em um stash com espaços proporcionais ao tamanho do item.
 
 ## Como usar
 
@@ -40,6 +41,13 @@ Na aba **Missões**, selecione a foto de um trader. As tarefas são agrupadas pe
 
 O nível mínimo não garante que a missão esteja liberada: facção, missões anteriores e outros requisitos também podem ser necessários. O progresso é manual e fica salvo neste navegador, separadamente para PVE e PVP. As instruções de apoio explicam as ações descritas nos objetivos; não são rotas verificadas individualmente para cada missão. As imagens são referências da missão e dos itens. Para localização exata e fotos de pontos do cenário, use o link da Wiki incluído no guia.
 
+## Raid
+
+Marque **Na Raid** na aba Missões para acompanhar a tarefa na aba **Raid**. Expanda a missão para consultar o mesmo guia, objetivos e fotos. A seleção é independente da caixa **Concluída** e fica salva por modo PVE/PVP.
+
+Todos os itens marcados aparecem no stash, somando as quantidades das diferentes origens. Cada clique em um item soma uma unidade em **Tenho**, assim como na aba Marcados. Durante a coleta, a borda fica amarela; ao completar, as necessidades são desmarcadas e uma ficha verde permanece na Raid. O próximo clique confirma e mantém a ficha; o seguinte a remove. O andamento e essas confirmações ficam salvos ao fechar o navegador.
+
 ## Créditos
 
 Dados e imagens fornecidos pelo projeto [tarkov.dev](https://tarkov.dev/). Escape from Tarkov e seus materiais pertencem à Battlestate Games. Este é um projeto independente, sem vínculo oficial com o jogo.
+

@@ -93,6 +93,8 @@ input.q{width:70px}
 .quest-level>summary small{font-weight:400;color:var(--mut)}
 .quest-card{border-top:1px solid var(--line);padding:12px 0}
 .quest-card-head{display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+.quest-actions{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.quest-raid-check input{accent-color:var(--gold)}
 .quest-card h3{font-size:15px;margin:0}
 .quest-card.complete h3{color:var(--grn)}
 .quest-card.complete .quest-description{opacity:.7}
@@ -122,6 +124,29 @@ input.q{width:70px}
 .quest-conditions{font-size:12px;color:var(--mut)}
 .quest-guide-intro{font-size:12px;color:var(--mut);line-height:1.5}
 .quest-level-label{color:var(--gold);font-size:12px;margin-left:7px;font-weight:400}
+/* Raid: os itens ocupam células conforme largura/altura, como em um stash. */
+.raid-heading{margin:18px 0 10px;font-size:17px;color:var(--gold)}
+.raid-quest>summary{display:flex;align-items:center;gap:10px}
+.raid-quest>summary img{width:42px;height:42px;border-radius:6px;object-fit:cover}
+.raid-quest-name{flex:1;min-width:0}
+.raid-quest-info{display:block;color:var(--mut);font-size:12px;font-weight:400;margin-top:3px}
+.raid-quest-body{border-top:1px solid var(--line);padding:12px 0 4px}
+.raid-quest-controls{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.raid-stash-panel{background:#101116;border:1px solid var(--line);border-radius:8px;padding:10px;overflow-x:auto}
+.raid-stash{--raid-cols:10;--raid-cell:clamp(32px,calc((100vw - 112px)/var(--raid-cols)),64px);display:grid;grid-template-columns:repeat(var(--raid-cols),var(--raid-cell));grid-auto-rows:var(--raid-cell);grid-auto-flow:dense;gap:3px;width:max-content;max-width:100%;background-color:#14171b;background-image:linear-gradient(#353a4133 1px,transparent 1px),linear-gradient(90deg,#353a4133 1px,transparent 1px);background-size:calc(var(--raid-cell) + 3px) calc(var(--raid-cell) + 3px)}
+.raid-item{grid-column:span var(--item-w);grid-row:span var(--item-h);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;min-width:0;padding:4px;border:2px solid #454b53;border-radius:2px;background:radial-gradient(ellipse at center,#30363d,#191d22);color:var(--txt);cursor:pointer}
+.raid-item img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 2px #0009);pointer-events:none}
+.raid-item.partial{border-color:var(--gold);box-shadow:inset 0 0 0 1px #e8c14d66;background:radial-gradient(ellipse at center,#403a20,#211f16)}
+.raid-item.collected{border-color:var(--grn);box-shadow:inset 0 0 0 1px #6fcf7f99;background:radial-gradient(ellipse at center,#28452f,#15241a)}
+.raid-item:hover{filter:brightness(1.12)}
+.raid-item:focus-visible{outline:2px solid var(--txt);outline-offset:1px;z-index:2}
+.raid-item-name{position:absolute;top:2px;left:3px;right:3px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:left;font-size:10px;text-shadow:0 1px 3px #000,0 0 3px #000;pointer-events:none}
+.raid-item-count{position:absolute;bottom:2px;right:3px;background:#080b0edd;padding:0 3px;border-radius:2px;font-size:11px;font-weight:700;pointer-events:none}
+.raid-item-check{position:absolute;bottom:2px;left:3px;color:var(--grn);font-size:15px;font-weight:700;text-shadow:0 1px 3px #000;pointer-events:none}
+.raid-legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--mut);font-size:12px;margin:8px 0}
+.raid-legend b{font-weight:600}
+@media(max-width:700px){.raid-stash{--raid-cols:8}}
+@media(max-width:500px){.raid-stash{--raid-cols:6}.raid-quest>summary{align-items:flex-start}}
 @media(max-width:550px){.quest-traders{grid-template-columns:repeat(3,minmax(0,1fr))}.quest-trader img{width:54px;height:54px}.quest-profile img{width:64px;height:64px}.quest-card-head{gap:8px}.quest-level>summary{align-items:baseline;flex-wrap:wrap;gap:3px}}
 /* Responsividade: estas regras entram em ação em telas de até 800 px. A segunda regra mantém Tenho, Faltam e custo visíveis nos Marcados. */
 @media(max-width:800px){.row{grid-template-columns:30px 40px 1fr 110px}.row>:nth-child(5),.row>:nth-child(6){display:none}}
@@ -148,6 +173,7 @@ input.q{width:70px}
   <button data-tab="hideout">Hideout</button>
   <button data-tab="barters">Trocas</button>
   <button data-tab="quests">Missões</button>
+  <button data-tab="raid">Raid<span class="badge" id="nraid" title="Missões e itens selecionados para a Raid">0</span></button>
 </nav>
 <!-- Área dinâmica: render() coloca aqui o HTML da aba selecionada. O navegador representa os elementos da página por meio do DOM. -->
 <main id="view"></main>
@@ -183,10 +209,17 @@ function fleaChange(item) {
 // ESTADO SALVO: DEF contém valores iniciais; S contém as escolhas e o progresso da pessoa.
 // JSON.parse converte o texto do localStorage em objeto. Object.assign combina os valores salvos com os padrões.
 // try/catch permite iniciar mesmo se o navegador bloquear a leitura ou se o texto salvo estiver inválido.
-const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, questDone: { pve: {}, regular: {} }, questOpen: {}, questTrader: '', mode: 'pve', tab: 'items' };
+const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, questDone: { pve: {}, regular: {} }, questOpen: {}, questTrader: '', raidQuests: { pve: {}, regular: {} }, raidCollected: { pve: {}, regular: {} }, mode: 'pve', tab: 'items' };
 let S = (() => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem('tkv-app') || '{}')); } catch (e) { return { ...DEF }; } })();
 if (!['regular', 'pve'].includes(S.mode)) S.mode = 'pve';
-if (!['items', 'marked', 'hideout', 'barters', 'quests'].includes(S.tab)) S.tab = 'items';
+if (!['items', 'marked', 'hideout', 'barters', 'quests', 'raid'].includes(S.tab)) S.tab = 'items';
+// Seleções de missão e itens já coletados na Raid persistem separadamente por modo.
+for (const field of ['raidQuests', 'raidCollected']) {
+  if (!S[field] || typeof S[field] !== 'object' || Array.isArray(S[field])) S[field] = {};
+  for (const mode of ['pve', 'regular']) {
+    if (!S[field][mode] || typeof S[field][mode] !== 'object' || Array.isArray(S[field][mode])) S[field][mode] = {};
+  }
+}
 // Conclusões são independentes por modo. Acrescenta campos sem apagar dados antigos.
 if (!S.questDone || typeof S.questDone !== 'object' || Array.isArray(S.questDone)) S.questDone = {};
 for (const mode of ['pve', 'regular']) {
@@ -324,6 +357,7 @@ function normalizeItems(source, translate, traders, taxonomy = {}) {
     id: item.id, name: translate(item.name, item.normalizedName || item.id),
     shortName: translate(item.shortName, item.normalizedName || item.id),
     iconLink: item.iconLink, width: item.width, height: item.height,
+    gridImageLink: item.gridImageLink || item.iconLink,
     guideImageLink: item.image512pxLink || item.baseImageLink || item.iconLink,
     groups: itemGroups(item, taxonomy),
     updated: item.lastScan || item.updated,
@@ -495,13 +529,17 @@ const hideoutSource = (station, level) => ({ stationId: station.id, stationName:
 function toggleMark(id, qty, source) {
   const key = markKey(id, source);
   if (S.marked[key]) delete S.marked[key];
-  else S.marked[key] = { itemId: id, qty: qty || 1, owned: 0, ...(source ? { source } : {}) };
+  else {
+    clearRaidCollected(id);
+    S.marked[key] = { itemId: id, qty: qty || 1, owned: 0, ...(source ? { source } : {}) };
+  }
   save();
 }
 // O botão de marcar um nível usa addMark: garante a marcação sem desmarcar o que já existe.
 // Math.max evita somar novamente ao clicar duas vezes; o valor owned já informado é preservado.
 function addMark(id, qty, source) {
   const key = markKey(id, source), m = S.marked[key];
+  if (!m || (qty || 1) > m.qty) clearRaidCollected(id);
   if (m) m.qty = Math.max(m.qty, qty || 1); else S.marked[key] = { itemId: id, qty: qty || 1, owned: 0, ...(source ? { source } : {}) };
   save();
 }
@@ -592,10 +630,19 @@ function unmarkItem(id) {
 }
 // Cada clique registra uma unidade no estoque total do produto agrupado.
 // Quando a última unidade necessária é registrada, remove todas as suas marcações.
-function collectOne(id) {
+function collectOne(id, origin = 'marked') {
   const group = markedRows().find(row => row.id === id);
   if (!group) return;
   if (group.missing <= 1) {
+    if (origin === 'raid') {
+      const item = group.it;
+      S.raidCollected[S.mode][id] = {
+        id, name: item?.name || id, shortName: item?.shortName || '',
+        imageLink: item?.gridImageLink || item?.guideImageLink || item?.iconLink || '',
+        width: item?.width || 1, height: item?.height || 1,
+        qty: group.m.qty, owned: group.m.qty, state: 'complete'
+      };
+    }
     unmarkItem(id);
   } else {
     // Distribui o estoque entre as origens sem duplicar unidades.
@@ -702,6 +749,17 @@ function setQuestDone(id, checked) {
   if (checked) S.questDone[S.mode][id] = true;
   else delete S.questDone[S.mode][id];
   save(); render();
+}
+const raidQuestSelected = id => !!S.raidQuests[S.mode][id];
+function setRaidQuest(id, checked) {
+  const task = DB.taskMap.get(id);
+  if (checked && !task) return;
+  if (checked) S.raidQuests[S.mode][id] = { name: task.name, nameEN: task.nameEN, traderId: task.traderId };
+  else delete S.raidQuests[S.mode][id];
+  save(); render();
+}
+function questRaidControl(task) {
+  return `<label class="quest-check quest-raid-check"><input type="checkbox" data-act="raidQuest" data-id="${esc(task.id)}" ${raidQuestSelected(task.id) ? 'checked' : ''} aria-label="Levar ${esc(task.name)} para a Raid">Na Raid</label>`;
 }
 function questTraderImage(trader, sizeClass = '') {
   return trader.imageLink ? `<img class="${sizeClass}" loading="lazy" src="${esc(trader.imageLink)}" alt="Foto de ${esc(trader.name)}">` : '<span aria-hidden="true">👤</span>';
@@ -838,7 +896,7 @@ function viewQuests() {
           });
           return `<article class="quest-card ${done ? 'complete' : ''}" data-quest-id="${esc(task.id)}">
             <div class="quest-card-head"><h3><span lang="pt-BR">${esc(task.name)}</span><span class="quest-name-en" lang="en">${esc(task.nameEN)}</span>${task.faction !== 'Any' ? `<span class="quest-level-label">${esc(task.faction)}</span>` : ''}</h3>
-              <label class="quest-check"><input type="checkbox" data-act="questDone" data-id="${esc(task.id)}" ${done ? 'checked' : ''} aria-label="Marcar ${esc(task.name)} como concluída">Concluída</label></div>
+              <div class="quest-actions">${questRaidControl(task)}<label class="quest-check"><input type="checkbox" data-act="questDone" data-id="${esc(task.id)}" ${done ? 'checked' : ''} aria-label="Marcar ${esc(task.name)} como concluída">Concluída</label></div></div>
             <p class="quest-short">${esc(task.objectives[0]?.description || 'Descrição não disponibilizada pela fonte de dados.')}</p>
             <details class="quest-description" data-quest-open="${esc(questOpenKey(taskKey))}" ${questIsOpen(taskKey, !!query) ? 'open' : ''}>
               <summary>Como fazer e fotos · ${task.objectives.length} objetivo(s)</summary>
@@ -847,6 +905,70 @@ function viewQuests() {
             </details></article>`;
         }).join('')}</details>`;
     }).join('') || '<div class="empty">Nenhuma missão corresponde aos filtros deste trader.</div>'}`;
+}
+
+// RAID: a lista viva usa as mesmas quantidades de Marcados.
+// Quando completa pela Raid, a marcação é removida e uma ficha verde fica até duas confirmações.
+function clearRaidCollected(id) {
+  for (const mode of ['pve', 'regular']) delete S.raidCollected[mode][id];
+}
+function raidItemRows() {
+  const rows = markedRows().map(group => ({
+    id: group.id, name: group.it?.name || group.id, shortName: group.it?.shortName || '',
+    imageLink: group.it?.gridImageLink || group.it?.guideImageLink || group.it?.iconLink || '',
+    width: group.it?.width || 1, height: group.it?.height || 1,
+    qty: group.m.qty, owned: group.m.owned, missing: group.missing,
+    state: group.m.owned > 0 ? 'partial' : 'pending'
+  }));
+  const liveIds = new Set(rows.map(row => row.id));
+  for (const [id, saved] of Object.entries(S.raidCollected[S.mode])) {
+    if (!saved || typeof saved !== 'object' || liveIds.has(id)) continue;
+    rows.push({ ...saved, id, missing: 0, state: saved.state === 'confirmed' ? 'confirmed' : 'complete' });
+  }
+  return rows.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR') || a.id.localeCompare(b.id));
+}
+function raidCollectItem(id) {
+  // Um novo requisito vivo tem prioridade sobre uma ficha de coleta antiga.
+  if (hasMarkedItem(id)) { collectOne(id, 'raid'); return; }
+  const item = S.raidCollected[S.mode][id];
+  if (!item) return;
+  if (item.state === 'confirmed') delete S.raidCollected[S.mode][id];
+  else item.state = 'confirmed';
+  save(); render();
+}
+function viewRaid() {
+  const items = raidItemRows();
+  const taskIds = Object.keys(S.raidQuests[S.mode]).filter(id => raidQuestSelected(id));
+  const missing = items.reduce((total, item) => total + item.missing, 0);
+  const modeLabel = S.mode === 'pve' ? 'PVE' : 'PVP';
+  const questCards = taskIds.map(id => {
+    const task = DB.taskMap.get(id), saved = S.raidQuests[S.mode][id];
+    if (!task) return `<article class="card"><h3>${esc(saved.name || 'Missão selecionada')}</h3><p class="mut">${DB.tasksState === 'error' ? 'Falha ao carregar o guia. Tente atualizar as missões.' : 'Aguardando os dados desta missão.'}</p><label class="quest-check"><input type="checkbox" data-act="raidQuest" data-id="${esc(id)}" checked>Na Raid</label></article>`;
+    const trader = DB.traders.find(trader => trader.id === task.traderId) || { name: 'Trader', imageLink: '' };
+    const done = questIsDone(task.id), key = 'raid-task:' + task.id;
+    const requirements = task.prerequisites.map(requirement => esc(DB.taskMap.get(requirement.id)?.name || 'Missão não identificada'));
+    return `<details class="raid-quest" data-quest-open="${esc(questOpenKey(key))}" ${questIsOpen(key, false) ? 'open' : ''}>
+      <summary>${questTraderImage(trader)}<span class="raid-quest-name"><span class="${done ? 'pos' : ''}">${esc(task.name)}${done ? ' · ✓ Concluída' : ''}</span><span class="quest-name-en" lang="en">${esc(task.nameEN)}</span><span class="raid-quest-info">${esc(trader.name)} · ${task.minPlayerLevel == null ? 'Nível não informado' : 'nvl ' + esc(task.minPlayerLevel)}</span></span></summary>
+      <div class="raid-quest-body"><div class="raid-quest-controls">${questRaidControl(task)}<label class="quest-check"><input type="checkbox" data-act="questDone" data-id="${esc(task.id)}" ${done ? 'checked' : ''}>Concluída</label></div>
+      ${questExecutionGuide(task)}${requirements.length ? `<p class="quest-note">Missões relacionadas nos pré-requisitos: ${requirements.join('; ')}.</p>` : ''}</div></details>`;
+  }).join('');
+  return `<div class="tot"><span>Raid · <b>${modeLabel}</b></span><span>Missões: <b>${taskIds.length}</b></span><span>Itens diferentes: <b>${items.length}</b></span><span>Unidades que faltam: <b>${missing}</b></span></div>
+    <h2 class="raid-heading">Missões da Raid</h2>
+    ${DB.tasksState === 'error' && taskIds.length ? '<p><button data-act="reloadTasks">Atualizar missões</button></p>' : ''}
+    ${questCards || '<div class="empty">Na aba Missões, marque “Na Raid” nas tarefas que deseja acompanhar aqui.</div>'}
+    <h2 class="raid-heading">Itens da Raid · stash</h2>
+    <div class="raid-legend"><span><b style="color:var(--gold)">Amarelo:</b> coleta em andamento</span><span><b class="pos">Verde:</b> quantidade completa</span></div>
+    <p class="quest-note">Clique em um item para somar 1 em “Tenho”. Ao completar, ele fica verde. O próximo clique confirma e mantém o item; o seguinte o retira da Raid.</p>
+    ${items.length ? `<div class="raid-stash-panel"><div class="raid-stash" role="group" aria-label="Stash com itens marcados para a Raid">${items.map(item => {
+      const collected = item.state === 'complete' || item.state === 'confirmed';
+      const width = Math.min(6, Math.max(1, Math.ceil(Number(item.width) || 1)));
+      const height = Math.min(6, Math.max(1, Math.ceil(Number(item.height) || 1)));
+      const image = questGuideURL(item.imageLink);
+      const action = item.state === 'complete' ? 'Completo. Clique para confirmar e manter; no próximo clique será removido.' : item.state === 'confirmed' ? 'Confirmado. Clique para retirar da Raid.' : 'Clique para coletar mais uma unidade.';
+      const description = item.name + '. Tenho ' + item.owned + ' de ' + item.qty + '. Faltam ' + item.missing + '. ' + action;
+      return `<button type="button" class="raid-item ${collected ? 'collected' : item.state === 'partial' ? 'partial' : ''}" data-act="raidCollect" data-id="${esc(item.id)}" style="--item-w:${width};--item-h:${height}" title="${esc(description)}" aria-label="${esc(description)}">
+        ${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : '<span aria-hidden="true">📦</span>'}<span class="raid-item-name">${esc(item.shortName || item.name)}</span><span class="raid-item-count">${esc(item.owned)}/${esc(item.qty)}</span>${collected ? '<span class="raid-item-check" aria-hidden="true">✓</span>' : ''}</button>`;
+    }).join('')}</div></div>` : '<div class="empty">Marque itens em Itens, Hideout ou Trocas para levá-los à Raid.</div>'}`;
 }
 
 // ---------- render ----------
@@ -872,8 +994,9 @@ function render() {
   if (changed) save();
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
   $('#nmarked').textContent = markedRows().length;
-  const v = { items: viewItems, marked: viewMarked, hideout: viewHideout, barters: viewBarters, quests: viewQuests }[S.tab];
-  if (S.tab !== 'quests' && !DB.items.length && !DB.stations.length && !DB.barters.length && !DB.tasks.length) {
+  $('#nraid').textContent = raidItemRows().length + Object.keys(S.raidQuests[S.mode]).filter(id => raidQuestSelected(id)).length;
+  const v = { items: viewItems, marked: viewMarked, hideout: viewHideout, barters: viewBarters, quests: viewQuests, raid: viewRaid }[S.tab];
+  if (!['quests', 'raid'].includes(S.tab) && !DB.items.length && !DB.stations.length && !DB.barters.length && !DB.tasks.length) {
     $('#view').innerHTML = `<div class="empty">${DB.errors.length ? 'Não foi possível carregar os dados.<br>' + esc(DB.errors.join(' | ')) : 'Carregando dados do tarkov.dev…'}</div>`;
     return;
   }
@@ -912,6 +1035,7 @@ document.addEventListener('click', e => {
   else if (a === 'reloadTasks') { DB.tasksState = 'idle'; loadAll(); }
   else if (a === 'moreItems') { UI.limit += 150; render(); }
   else if (a === 'collectOne') { collectOne(t.dataset.id); }
+  else if (a === 'raidCollect') { raidCollectItem(t.dataset.id); }
   else if (a === 'unmarkItem') { unmarkItem(t.dataset.id); save(); render(); }
   else if (a === 'mark') {
     let source;
@@ -930,13 +1054,14 @@ document.addEventListener('click', e => {
     render();
   }
   else if (a === 'clearHave') { markedRows().filter(row => row.missing === 0).forEach(row => unmarkItem(row.id)); save(); render(); }
-  else if (a === 'clearAll') { if (confirm('Remover todos os itens marcados?')) { S.marked = {}; save(); render(); } }
+  else if (a === 'clearAll') { if (confirm('Remover todos os itens marcados?')) { S.marked = {}; S.raidCollected = { pve: {}, regular: {} }; save(); render(); } }
 });
 // change trata escolhas concluídas: níveis concluídos, ordenação e filtros.
 // As mudanças em S chamam save(); as opções temporárias de UI são redesenhadas sem gravação permanente.
 document.addEventListener('change', e => {
   const t = e.target; const a = t.dataset && t.dataset.act;
   if (a === 'questDone') { setQuestDone(t.dataset.id, t.checked); }
+  else if (a === 'raidQuest') { setRaidQuest(t.dataset.id, t.checked); }
   else if (a === 'done') { if (t.checked) S.done[t.dataset.key] = true; else delete S.done[t.dataset.key]; save(); render(); }
   else if (t.id === 'questStatus') { UI.questStatus = t.value; render(); }
   else if (t.id === 'questLevel') { UI.questLevel = t.value; render(); }
@@ -971,6 +1096,7 @@ setInterval(loadAll, REFRESH_MS);
 </script>
 </body>
 </html>
+
 
 
 
