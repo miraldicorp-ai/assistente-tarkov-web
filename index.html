@@ -390,38 +390,10 @@ function chip(ref, count, source) {
   return `<div class="chip ${hl ? 'hl' : ''}" data-act="mark" data-id="${esc(it.id)}" data-qty="${count || 1}" ${source ? `data-station-id="${esc(source.stationId)}" data-level="${esc(source.level)}"` : ''} title="Clique para ${hl ? 'desmarcar' : 'marcar'}">
     <img loading="lazy" src="${esc(it.iconLink)}" alt=""><div>${hl ? '★ ' : ''}${esc(it.shortName || it.name)} ×${count}<small>${fmt(multiplyPrice(p, count))}</small></div></div>`;
 }
-// Monta a comparação de compras de um item.
 // Menor oferta de compra; requisitos de nível e missão continuam associados à oferta.
 function traderBuy(item) {
   return (item.buyFromTrader || []).filter(offer => offer.priceRUB > 0)
     .reduce((best, offer) => !best || offer.priceRUB < best.priceRUB ? offer : best, null);
-}
-function purchaseComparison(item) {
-  const fleaPrice = item.lastLowPrice || item.avg24hPrice;
-  const fleaLabel = item.lastLowPrice ? 'Flea · última coleta' : 'Flea · média de 24h';
-  const offers = (item.buyFromTrader || [])
-    .filter(offer => offer.priceRUB > 0)
-    .sort((a, b) => a.priceRUB - b.priceRUB);
-
-  // O preço e seu nível ficam na mesma linha; cada tipo de nível tem uma descrição.
-  const traderRows = offers.map(offer => `
-    <div class="p">
-      ${esc(offer.traderName)} · <span class="pos">${fmt(offer.priceRUB)}</span>
-      <span class="level-tag" title="Nível de lealdade do comerciante">· nvl ${esc(offer.minTraderLevel ?? '?')}</span>
-      ${offer.taskUnlock ? '<small>Exige desbloqueio por missão</small>' : ''}
-    </div>
-  `).join('');
-
-  return `
-    <details class="purchase-comparison">
-      <summary>Comparar compras</summary>
-      <div class="p">
-        ${fleaLabel}: ${fmt(fleaPrice)}
-        <span class="level-tag" title="Nível do jogador para acesso ao flea">· nvl ${esc(item.minLevelForFlea ?? '?')}</span>
-      </div>
-      ${traderRows || '<p class="mut">Nenhuma oferta de comerciante disponível.</p>'}
-    </details>
-  `;
 }
 // ---------- abas ----------
 // ABA ITENS: filter() seleciona resultados; sort() ordena; slice() limita o que é exibido.
@@ -457,7 +429,6 @@ function viewItems() {
       <div class="name">
   ${esc(i.name)}
   <small>${esc(i.shortName)}</small>
-  ${purchaseComparison(i)}
 </div>
       <div class="p">${fmt(i.lastLowPrice)} <span class="level-tag" title="Nível do jogador para acesso ao flea">· nvl ${esc(i.minLevelForFlea ?? '?')}</span><small>média 24h: ${fmt(i.avg24hPrice)}</small></div>
       <div class="p">${purchase ? `<span class="pos">${fmt(purchase.priceRUB)}</span> <span class="level-tag" title="Nível de lealdade do comerciante">· nvl ${esc(purchase.minTraderLevel ?? '?')}</span><small>${esc(purchase.traderName)}</small>${purchase.taskUnlock ? '<small>Exige desbloqueio por missão</small>' : ''}` : '<span class="mut">Sem oferta de compra</span>'}</div>
