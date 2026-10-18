@@ -155,6 +155,27 @@ input.q{width:70px}
 /* Responsividade: estas regras entram em ação em telas de até 800 px. A segunda regra mantém Tenho, Faltam e custo visíveis nos Marcados. */
 @media(max-width:800px){.row{grid-template-columns:30px 40px 1fr 110px}.row>:nth-child(5),.row>:nth-child(6){display:none}}
 @media(max-width:800px){.row.marked-row,.row.marked-head{grid-template-columns:30px 40px minmax(0,1fr) 110px}.row.marked-row>:nth-child(5){display:flex;grid-column:3 / -1;flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px}.row.marked-row>:nth-child(6){display:block;grid-column:3 / -1}.marked-row .q{width:90px}}
+/* Finais: cards selecionáveis e árvore vertical com ramos de provas paralelos. */
+.escape-endings{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.escape-endings button{display:flex;align-items:center;flex-direction:column;gap:5px;padding:14px;min-width:0}
+.escape-endings button[aria-pressed=true]{border-color:var(--gold);background:#38331f}
+.escape-endings img{max-width:100%;object-fit:contain}.escape-endings strong{font-size:18px}
+.escape-endings span,.escape-endings b{color:var(--mut)}
+.escape-progress{padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.escape-progress h3{margin:0 0 8px}.escape-progress progress{width:100%;accent-color:var(--grn)}
+.escape-tree{list-style:none;padding:0;margin:12px 0}.escape-tree>li{position:relative;padding:0 0 0 18px;margin-left:10px;border-left:2px solid var(--line)}
+.escape-arrow{display:block;color:var(--gold);text-align:center;font-size:23px;line-height:32px}
+.escape-node{position:relative;border:1px solid var(--line);border-left:4px solid var(--mut);border-radius:6px;background:var(--panel);padding:12px;overflow-wrap:anywhere}
+.escape-node small{display:block;color:var(--mut);margin-top:3px}.escape-node p{margin:8px 0;color:var(--mut)}
+.escape-node.active{border-color:var(--gold);background:#322e1d}.escape-node.active .escape-state{color:var(--gold)}
+.escape-node.complete{border-color:var(--grn);background:#1d3024}.escape-node.complete .escape-state{color:var(--grn)}
+.escape-node .quest-actions{margin:10px 0}.escape-node a{display:inline-block;margin-left:10px;font-size:12px}
+.escape-state{display:block;font-size:12px;margin-top:5px}.escape-evidence{margin:12px 0;padding:12px;border:1px dashed var(--gold);border-radius:6px}
+.escape-branches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.escape-branches .escape-node{border-top:3px solid var(--line)}
+.escape-mission-section{margin-bottom:18px}.quest-card.in-progress{border-color:var(--gold)}
+@media(max-width:700px){.escape-endings{grid-template-columns:repeat(2,minmax(0,1fr))}.escape-branches{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.escape-branches{grid-template-columns:minmax(0,1fr)}}
+
 </style>
 </head>
 <body>
@@ -177,6 +198,7 @@ input.q{width:70px}
   <button data-tab="hideout">Hideout</button>
   <button data-tab="barters">Trocas</button>
   <button data-tab="quests">Missões</button>
+  <button data-tab="escape">Prepare for Escape</button>
   <button data-tab="raid">Raid<span class="badge" id="nraid" title="Missões e itens selecionados para a Raid">0</span></button>
 </nav>
 <!-- Área dinâmica: render() coloca aqui o HTML da aba selecionada. O navegador representa os elementos da página por meio do DOM. -->
@@ -213,17 +235,20 @@ function fleaChange(item) {
 // ESTADO SALVO: DEF contém valores iniciais; S contém as escolhas e o progresso da pessoa.
 // JSON.parse converte o texto do localStorage em objeto. Object.assign combina os valores salvos com os padrões.
 // try/catch permite iniciar mesmo se o navegador bloquear a leitura ou se o texto salvo estiver inválido.
-const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, questDone: { pve: {}, regular: {} }, questOpen: {}, questTrader: '', raidQuests: { pve: {}, regular: {} }, raidCollected: { pve: {}, regular: {} }, mode: 'pve', tab: 'items' };
+const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, questDone: { pve: {}, regular: {} }, questOpen: {}, questTrader: '', questActive: {pve:{},regular:{}}, escapeEnding:'savior', escapeCase:{pve:'kept',regular:'kept'}, raidQuests: { pve: {}, regular: {} }, raidCollected: { pve: {}, regular: {} }, mode: 'pve', tab: 'items' };
 let S = (() => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem('tkv-app') || '{}')); } catch (e) { return { ...DEF }; } })();
 if (!['regular', 'pve'].includes(S.mode)) S.mode = 'pve';
-if (!['items', 'marked', 'hideout', 'barters', 'quests', 'raid'].includes(S.tab)) S.tab = 'items';
+if (!['items', 'marked', 'hideout', 'barters', 'quests', 'raid', 'escape'].includes(S.tab)) S.tab = 'items';
 // Seleções de missão e itens já coletados na Raid persistem separadamente por modo.
-for (const field of ['raidQuests', 'raidCollected']) {
+for (const field of ['raidQuests', 'raidCollected', 'questActive']) {
   if (!S[field] || typeof S[field] !== 'object' || Array.isArray(S[field])) S[field] = {};
   for (const mode of ['pve', 'regular']) {
     if (!S[field][mode] || typeof S[field][mode] !== 'object' || Array.isArray(S[field][mode])) S[field][mode] = {};
   }
 }
+if (!['savior','debtor','survivor','fallen'].includes(S.escapeEnding)) S.escapeEnding='savior';
+if (!S.escapeCase || typeof S.escapeCase!=='object') S.escapeCase={};
+for (const mode of ['pve','regular']) if (!['kept','handed'].includes(S.escapeCase[mode])) S.escapeCase[mode]='kept';
 // Conclusões são independentes por modo. Acrescenta campos sem apagar dados antigos.
 if (!S.questDone || typeof S.questDone !== 'object' || Array.isArray(S.questDone)) S.questDone = {};
 for (const mode of ['pve', 'regular']) {
@@ -743,16 +768,157 @@ function viewBarters() {
     || '<div class="empty">Nenhuma troca encontrada.</div>'}`;
 }
 
+// PREPARE FOR ESCAPE: roteiro editorial por rota; os IDs são estáveis e compartilham o progresso de Missões.
+// Capítulos da história não são fornecidos pela API de tarefas dos traders. Por isso ficam neste catálogo.
+const ESCAPE_NODES = new Map();
+function escapeStep(id, name, nameEN, description, wiki = 'The_Ticket') {
+  const node = {id:'escape:'+id, name, nameEN, description, wikiLink:'https://escapefromtarkov.fandom.com/wiki/'+wiki};
+  ESCAPE_NODES.set(node.id,node); return node;
+}
+const E = escapeStep;
+const ESCAPE_COMMON = [
+ E('tour','Tour — iniciar a investigação','Tour','Avance no capítulo até poder perguntar a Mechanic sobre o avião. Não é necessário concluir todos os objetivos de Tour para iniciar Falling Skies.','Tour'),
+ E('falling-skies','Céus em queda','Falling Skies','Investigue o avião e resolva a escolha da caixa blindada. Informe abaixo se ficou com a caixa ou a entregou.','Falling_Skies'),
+ E('ticket-contact','O bilhete — contato com Kerman','The Ticket — contact Mr. Kerman','Construa Intelligence Center 1 e avance nas conversas iniciais com Kerman e Prapor.'),
+ E('case-return','Recuperar a caixa com Lightkeeper','Retrieve the Armored case','Se entregou a caixa: investigue o acampamento e cumpra as exigências de Lightkeeper para recuperá-la. Confira o guia para acesso, pastas e combate.'),
+ E('case-open','Abrir a caixa blindada','Unlock the Armored case','Obtenha o bloqueador experimental com ajuda de Mechanic e abra a caixa no Lab. Leia as instruções e contate Kerman.')
+];
+const ESCAPE_EVIDENCE = [
+ E('ev-witness','Testemunha acidental','Accidental Witness','Obtenha Audio tape with incriminating evidence.','Accidental_Witness'),
+ E('ev-batya','Batya','Batya','Obtenha Agent network deployment report.','Batya'),
+ E('ev-blue','Fogo azul','Blue Fire','Obtenha Item #1156 specification.','Blue_Fire'),
+ E('ev-boreas','Boreas','Boreas','Obtenha Icebreaker archive data.','Boreas'),
+ E('ev-labyrinth','O labirinto','The Labyrinth','Obtenha Labyrinth facility research report.','The_Labyrinth_(story_chapter)'),
+ E('ev-warden','Os não ouvidos — Warden','The Unheard — Warden','Obtenha Document mentioning the Warden.','The_Unheard'),
+ E('ev-fuel','Os não ouvidos — catalisador','The Unheard — fuel catalyst','Obtenha Fuel catalyst test report.','The_Unheard'),
+ E('ev-arrs','Eles já estão aqui','They Are Already Here','Obtenha ARRS system specifications; confira a escolha do sistema ARRS antes de pegar o dispositivo.','They_Are_Already_Here'),
+ E('ev-ms-a','Transcrição de conversa com a Sra. A.','Transcript of conversation with Ms. A.','Prova independente de capítulo, no cofre do quarto do apartamento Cardinal.')
+];
+const ESCAPE_ACCEPT = E('accept','Aceitar a oferta de Kerman','Accept Mr. Kerman’s offer','Escolha continuar com Kerman. Esta decisão separa a rota Survivor das demais.');
+const ESCAPE_DIRT = E('dirt','Aceitar investigar a TerraGroup','Agree to find dirt on TerraGroup','Aceite procurar provas contra a TerraGroup. Recusar leva à rota Fallen.');
+const ESCAPE_INTEL = E('intel3','Intelligence Center 3','Intelligence Center level 3','Prepare o módulo necessário para enviar as provas a Kerman.');
+const ESCAPE_SOLAR = E('solar','Energia solar 1','Solar Power level 1','Construa o módulo necessário para a fabricação do cartão reprogramado.');
+const ESCAPE_TERMINAL = E('terminal','Escapar pelo Terminal','Escape from Tarkov','Apresente o acesso da rota em Shoreline à noite, entre no Terminal e conclua a extração. Savior exige também o Alpha-1 com as provas.');
+const ESCAPE_ROUTES = [
+ {id:'savior',name:'Savior',pt:'Salvador',icon:'68e8f0575eb7e5ce5000ba0a',pveIcon:'68f7635e006f73031b0336fa',evidence:8,steps:[ESCAPE_ACCEPT,
+ E('bitcoin','Ativar o cartão com Mechanic','Activate the RFID card','Cumpra a etapa de Mechanic, incluindo a entrega dos 40 bitcoins exigidos.'),ESCAPE_DIRT,ESCAPE_INTEL,
+ E('continue-evidence','Continuar depois das duas primeiras provas','Continue finding evidence','Quando Kerman perguntar, continue a investigação para alcançar oito provas principais.'),
+ E('alpha','Confirmar as provas e receber Alpha-1','Confirm evidence delivery','Confirme a entrega das provas e aguarde o contato de confiança.'),
+ E('fence','Cumprir as tarefas de Fence','Complete Fence’s assignments','Mantenha reputação 4.0 e cumpra os objetivos específicos do seu modo.'),
+ E('fence-first','Primeira tarefa de Fence','Fence assignment 1','PVP: extração cooperativa Friendship Bridge em Woods. PVE: elimine 5 PMCs em uma raid de Interchange, sem matar Scavs.'),
+ E('fence-second','Segunda tarefa de Fence','Fence assignment 2','PVP: extração cooperativa Scav Lands em Reserve. PVE: elimine 5 PMCs em uma raid de Shoreline, sem matar Scavs.'),
+ E('btr','Atingir reputação 0.4 com BTR Driver','BTR Driver standing 0.4','Complete a cadeia The Price of Independence. Choose Your Friends Wisely encerra esta possibilidade.','The_Price_of_Independence'),
+ ESCAPE_SOLAR,E('savior-card','Preparar o acesso de Kerman','Kerman’s reprogrammed RFID keycard','Receba os códigos de Fence e fabrique o cartão de Kerman. Leve o Alpha-1.')]},
+ {id:'debtor',name:'Debtor',pt:'Devedor',icon:'68e8f04eb841bc8ac305350a',pveIcon:'68f76353c152253a5b01a612',evidence:2,steps:[ESCAPE_ACCEPT,ESCAPE_DIRT,ESCAPE_INTEL,
+ E('stop-evidence','Parar após duas provas','Refuse further evidence collection','Entregue duas provas e recuse continuar quando Kerman perguntar. Não prossiga até oito.'),
+ E('ask-traders','Perguntar aos traders como sair','Ask the traders how to leave','Fale com os traders; deixe Lightkeeper por último.'),
+ E('topography','Entregar os dados topográficos','Topographic intelligence','Reúna os dados dos cinco mapas no dispositivo militar.'),
+ E('woods-pmc','Eliminar 30 PMCs em Woods','Eliminate 30 PMCs on Woods','Cumpra o objetivo de combate da rota de Lightkeeper.'),
+ E('dogtags','Entregar 100 dogtags de PMC','Hand over 100 PMC dogtags','Reúna e entregue as identificações exigidas.'),
+ E('amulets','Esconder os seis amuletos','Stash six Sacred Amulets','Reúna os amuletos das salas marcadas e esconda-os na sala marcada de Lighthouse.'),
+ E('debtor-card','Obter o cartão de Lightkeeper','RFID keycard with unknown name','Troque uma pasta azul pelo cartão que permite acessar o Terminal.')]},
+ {id:'survivor',name:'Survivor',pt:'Sobrevivente',icon:'68e8f02ff3a1196d1a05f2cb',pveIcon:'68f76335c3f68167b8029c18',steps:[
+ E('refuse','Recusar a oferta de Kerman','Refuse Mr. Kerman’s offer','Recuse a cooperação e procure Prapor.'),
+ E('payment','Pagar a Prapor','Pay Prapor','Caixa entregue: 300 milhões de rublos. Caixa mantida: 500 milhões.'),
+ E('survivor-conditions','Resolver as exigências adicionais de Prapor','Complete Prapor’s timed tasks','Somente se manteve a caixa: SSD de provas, 50 eliminações em Streets e 4 PMCs na mesma raid em até 72h; falhar leva à entrega do Kappa.'),
+ E('survivor-letter','Receber a carta de Prapor','Prapor’s letter for the port checkpoint','Use a carta para apresentar-se no interfone do Terminal.')]},
+ {id:'fallen',name:'Fallen',pt:'Caído',icon:'68e8f042b8efa2bbeb009d89',pveIcon:'68f76344bc0e8927900279f0',steps:[ESCAPE_ACCEPT,
+ E('refuse-dirt','Recusar investigar a TerraGroup','Refuse to find dirt on TerraGroup','Após aceitar a oferta inicial, recuse procurar as provas.'),
+ E('fallen-conditions','Resolver as exigências adicionais de Prapor','Complete Prapor’s handovers','Somente se manteve a caixa: 50 eletrônicos militares/avançados, um contêiner Theta/Epsilon/Kappa e 40 kits de reparo.'),
+ E('cargo','Entregar a carga perigosa','Hand over Case with dangerous cargo','Obtenha a carga e entregue a Prapor.'),
+ E('dollars','Entregar 1 milhão de dólares','Hand over 1,000,000 dollars','Pague o valor exigido e aguarde os códigos.'),ESCAPE_SOLAR,
+ E('fallen-card','Preparar o acesso de Prapor','Prapor’s reprogrammed RFID keycard','Receba os códigos de Prapor e prepare o cartão reprogramado.')]} 
+];
+// Estas etapas precedem a segunda decisão de Kerman nas três rotas que aceitam sua oferta.
+const ESCAPE_ACTIVATE = [
+ E('master-pass','Obter o passe mestre do Lab','Obtain the Laboratory master pass','Use o passe encontrado no cofre de Kruglov para avançar na ativação.'),
+ E('encryption-failure','Investigar o dispositivo de criptografia','Obtain an RFID card encryption device','Avance no objetivo do Lab até a falha prevista pelo roteiro; então procure Mechanic.'),
+ ESCAPE_NODES.get('escape:bitcoin'),
+ E('encryption-device','Recolher o dispositivo de Elektronik','Collect the RFID card encryption device','Após pagar Mechanic, use o acesso ao apartamento de Elektronik e recolha o dispositivo.'),
+ E('activate-card','Ativar o cartão de Kruglov','Activate Kruglov’s RFID keycard','Fabrique o cartão ativado no Intelligence Center.'),
+ E('first-intercom','Apresentar o cartão no interfone','Swipe the activated keycard','Apresente o cartão no acesso ao Terminal e retorne para falar com Kerman.')
+];
+function escapeRoute(){return ESCAPE_ROUTES.find(r=>r.id===S.escapeEnding)||ESCAPE_ROUTES[0]}
+function escapeRouteSteps(route){
+ const common=ESCAPE_COMMON.filter(n=>n.id!=='escape:case-return'||S.escapeCase[S.mode]==='handed');
+ const steps=route.steps.filter(n=>n.id!=='escape:bitcoin').filter(n=>!['escape:survivor-conditions','escape:fallen-conditions'].includes(n.id)||S.escapeCase[S.mode]==='kept').flatMap(n=>n.id==='escape:accept'?[n,...ESCAPE_ACTIVATE]:[n]);
+ return [...common,...steps,ESCAPE_TERMINAL];
+}
+function escapeStats(route){
+ const nodes=escapeRouteSteps(route),done=nodes.filter(n=>questIsDone(n.id)).length;
+ const evidenceDone=ESCAPE_EVIDENCE.filter(n=>questIsDone(n.id)).length;
+ const traderTasks=route.id==='savior'?escapeTraderChain():[];
+ const total=nodes.length+(route.evidence||0)+traderTasks.length,completed=done+Math.min(route.evidence||0,evidenceDone)+traderTasks.filter(t=>questIsDone(t.id)).length;
+ return {total,completed,percent:Math.floor(completed*100/total),evidenceDone};
+}
+function escapeTraderChain(){
+ // Tarefas alternativas com o mesmo nome não são somadas como se ambas fossem obrigatórias.
+ const roots=DB.tasks.filter(t=>t.wikiLink?.endsWith('/The_Price_of_Independence'));
+ const root=roots.find(t=>questIsDone(t.id))||roots.find(t=>S.questActive[S.mode][t.id])||roots[0];
+ const seen=new Set(),tasks=[];
+ function visit(task){
+  if(!task||seen.has(task.id))return;seen.add(task.id);
+  for(const req of task.prerequisites) if(req.statuses.length===1&&req.statuses[0]==='complete') visit(DB.taskMap.get(req.id));
+  tasks.push(task);
+ }
+ visit(root);return tasks;
+}
+function escapeTraderTree(controls){
+ const tasks=escapeTraderChain();
+ if(!tasks.length)return '<p class="quest-note">Aguardando a cadeia de tarefas do BTR Driver. Atualize os dados de Missões para incluí-la no percentual.</p>';
+ const depth=new Map(),groups=new Map(),ids=new Set(tasks.map(t=>t.id));
+ for(const task of tasks){
+  const parents=task.prerequisites.filter(r=>r.statuses.length===1&&r.statuses[0]==='complete'&&ids.has(r.id));
+  const level=parents.length?1+Math.max(...parents.map(r=>depth.get(r.id)||0)):0;
+  depth.set(task.id,level);if(!groups.has(level))groups.set(level,[]);groups.get(level).push({task,parents});
+ }
+ return `<section class="escape-evidence"><h3>Tarefas de trader · The Price of Independence</h3><p>Ramos de conclusão da API. Cada ligação indica o pré-requisito pelo nome; tarefas lado a lado não dependem umas das outras. Condições de tarefa ativa, falha e versões alternativas continuam no guia de Missões.</p>${[...groups].map(([level,entries])=>`<div>${level?'<span class="escape-arrow" aria-hidden="true">↓</span>':''}<div class="escape-branches">${entries.map(({task,parents})=>`<div>${parents.length?`<p class="quest-note">Depende de: ${parents.map(r=>`<a href="#escape-node-${esc(r.id)}">${esc(DB.taskMap.get(r.id).name)}</a>`).join(' + ')}</p>`:''}${escapeNode({...task,description:task.objectives[0]?.description||'Consulte os objetivos na aba Missões.'},controls)}</div>`).join('')}</div></div>`).join('')}</section>`;
+}
+function questActiveControl(task){return `<label class="quest-check"><input type="checkbox" data-act="questActive" data-id="${esc(task.id)}" ${S.questActive[S.mode][task.id]?'checked':''} ${questIsDone(task.id)?'disabled':''}>Em andamento</label>`}
+function escapeStatusControls(node){return `<div class="quest-actions">${questActiveControl(node)}<label class="quest-check"><input type="checkbox" data-act="questDone" data-id="${esc(node.id)}" ${questIsDone(node.id)?'checked':''}>Concluída</label></div>`}
+function escapeNode(node,controls=false){
+ const done=questIsDone(node.id),active=!done&&!!S.questActive[S.mode][node.id];
+ const guide=questGuideURL(node.wikiLink,'guide');
+ return `<article id="escape-node-${esc(node.id)}" class="escape-node ${done?'complete':active?'active':''}" data-escape-node="${esc(node.id)}"><strong>${esc(node.name)}</strong><small lang="en">${esc(node.nameEN)}</small><span class="escape-state">${done?'✓ Concluída':active?'● Em andamento':'○ Pendente'}</span><p>${esc(node.description)}</p>${controls?escapeStatusControls(node):`<button data-act="escapeMission" data-id="${esc(node.id)}">Ver em Missões</button>`}${guide?`<a href="${esc(guide)}" target="_blank" rel="noopener noreferrer">Guia da etapa ↗</a>`:''}</article>`;
+}
+function escapeEvidenceTree(route,controls){
+ if(!route.evidence)return '';
+ const stats=escapeStats(route);
+ return `<section class="escape-evidence"><h3>Ramos de provas — ${Math.min(stats.evidenceDone,route.evidence)} / ${route.evidence}</h3><p>Escolha ${route.evidence} das 9 provas principais. Marque o ramo como concluído quando a prova estiver entregue. Os ramos são alternativas, não uma sequência obrigatória de todos os capítulos.${route.id==='debtor'?' Após duas provas, registre a decisão de parar.':''}</p><div class="escape-branches">${ESCAPE_EVIDENCE.map(n=>escapeNode(n,controls)).join('')}</div></section>`;
+}
+function escapeTree(route,controls=false){
+ const nodes=escapeRouteSteps(route);
+ return `<ol class="escape-tree">${nodes.map((node,index)=>`<li>${index?'<span class="escape-arrow" aria-hidden="true">↓</span>':''}${escapeNode(node,controls)}${(route.id==='savior'&&node.id==='escape:continue-evidence')||(route.id==='debtor'&&node.id==='escape:intel3')?escapeEvidenceTree(route,controls):''}${node.id==='escape:btr'?escapeTraderTree(controls):''}</li>`).join('')}</ol>`;
+}
+function escapeMissionSection(){
+ const route=escapeRoute();
+ return `<details class="escape-mission-section" data-quest-open="${esc(questOpenKey('escape-missions'))}" ${questIsOpen('escape-missions',false)?'open':''}><summary>História · Prepare for Escape · ${esc(route.name)}</summary><p>Marque aqui as etapas da história. O progresso é o mesmo da árvore em Prepare for Escape.</p>${escapeTree(route,true)}</details>`;
+}
+function viewEscape(){
+ const route=escapeRoute(),stats=escapeStats(route);
+ return `<h2>Prepare for Escape</h2><p class="mut">Escolha um final para abrir sua árvore de progressão. As traduções de apoio acompanham os nomes em inglês.</p><div class="escape-endings">${ESCAPE_ROUTES.map(r=>{const s=escapeStats(r);return `<button data-act="escapeEnding" data-id="${r.id}" aria-pressed="${r.id===route.id}"><img src="https://assets.tarkov.dev/achievement-${S.mode==='pve'?r.pveIcon:r.icon}-icon.webp" alt="Ícone do final ${r.name}" width="92" height="92"><strong>${r.name}</strong><span>${r.pt}</span><b>${s.percent}%</b></button>`}).join('')}</div>
+ <div class="bar"><label>Em Falling Skies, a caixa foi <select id="escapeCase"><option value="kept" ${S.escapeCase[S.mode]==='kept'?'selected':''}>Mantida comigo</option><option value="handed" ${S.escapeCase[S.mode]==='handed'?'selected':''}>Entregue a Prapor</option></select></label></div>
+ <section class="escape-progress" aria-live="polite"><h3>${route.name} · ${stats.percent}%</h3><progress max="${stats.total}" value="${stats.completed}" aria-label="Conclusão da rota ${route.name}"></progress><p>${stats.completed} de ${stats.total} etapas/provas concluídas · ${S.mode==='pve'?'PVE':'PVP'}</p></section>
+ <p class="quest-note">Amarelo: em andamento · Verde: concluída. Registre as escolhas em Missões. A porcentagem mede este roteiro de etapas e provas, sem contar tarefas em andamento; não é um desbloqueio automático no jogo. As escolhas de história são irreversíveis no jogo.${route.id==='savior'&&DB.tasksState!=='ready'?' Aguarde os dados dos traders para que o percentual inclua a cadeia BTR.':''}</p>
+ ${escapeTree(route)}<p class="quest-note">Roteiro revisado em 18/10/2026. Condições e versões do jogo podem mudar. Consulte os guias para os objetivos internos de cada capítulo. <a href="https://escapefromtarkov.fandom.com/wiki/The_Ticket" target="_blank" rel="noopener noreferrer">Wiki: The Ticket</a> · <a href="https://tarkovforge.web.app/story-guide/endings/${route.id}" target="_blank" rel="noopener noreferrer">Rota ${route.name}</a>. Ícones: tarkov.dev / Battlestate Games.</p>`;
+}
+
+
 // MISSÕES: o progresso usa o ID da tarefa dentro do modo PVE/PVP.
 const questIsDone = id => !!S.questDone[S.mode][id];
 const questOpenKey = id => S.mode + ':' + id;
 const questIsOpen = (id, fallback = true) => S.questOpen[questOpenKey(id)] ?? fallback;
 const questSearchText = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 function setQuestDone(id, checked) {
-  if (!DB.taskMap.has(id)) return;
-  if (checked) S.questDone[S.mode][id] = true;
+  if (!DB.taskMap.has(id) && !ESCAPE_NODES.has(id)) return;
+  if (checked) { S.questDone[S.mode][id] = true; delete S.questActive[S.mode][id]; }
   else delete S.questDone[S.mode][id];
   save(); render();
+}
+function setQuestActive(id,checked) {
+  if ((!DB.taskMap.has(id)&&!ESCAPE_NODES.has(id))||questIsDone(id)) return;
+  if(checked) S.questActive[S.mode][id]=true; else delete S.questActive[S.mode][id];
+  save();render();
 }
 const raidQuestSelected = id => !!S.raidQuests[S.mode][id];
 function setRaidQuest(id, checked) {
@@ -848,7 +1014,7 @@ function questExecutionGuide(task) {
     }).join('') || '<li>Objetivos não informados pela fonte.</li>'}</ol>
     <p class="quest-note">Objetivos, nomes e imagens: tarkov.dev. O progresso continua sendo marcado manualmente.</p>`;
 }
-function viewQuests() {
+function viewTraderQuests() {
   if (DB.tasksState === 'error') return `<div class="empty">Não foi possível carregar as missões.<br>${esc(DB.tasksError)}<p><button data-act="reloadTasks">Tentar novamente</button></p></div>`;
   if (DB.tasksState !== 'ready') return '<div class="empty" role="status">Carregando missões e traders do tarkov.dev…</div>';
   if (!DB.tasks.length) return '<div class="empty">A fonte de dados não retornou missões para este modo.</div>';
@@ -898,9 +1064,9 @@ function viewQuests() {
             const name = DB.taskMap.get(requirement.id)?.name || 'Missão não identificada';
             return esc(name) + (requirement.statuses.length ? ' (' + requirement.statuses.map(status => esc(taskStatusLabels[status] || status)).join(' / ') + ')' : '');
           });
-          return `<article class="quest-card ${done ? 'complete' : ''}" data-quest-id="${esc(task.id)}">
+          return `<article class="quest-card ${done ? 'complete' : S.questActive[S.mode][task.id] ? 'in-progress' : ''}" data-quest-id="${esc(task.id)}">
             <div class="quest-card-head"><h3><span lang="pt-BR">${esc(task.name)}</span><span class="quest-name-en" lang="en">${esc(task.nameEN)}</span>${task.faction !== 'Any' ? `<span class="quest-level-label">${esc(task.faction)}</span>` : ''}</h3>
-              <div class="quest-actions">${questRaidControl(task)}<label class="quest-check"><input type="checkbox" data-act="questDone" data-id="${esc(task.id)}" ${done ? 'checked' : ''} aria-label="Marcar ${esc(task.name)} como concluída">Concluída</label></div></div>
+              <div class="quest-actions">${questActiveControl(task)}${questRaidControl(task)}<label class="quest-check"><input type="checkbox" data-act="questDone" data-id="${esc(task.id)}" ${done ? 'checked' : ''} aria-label="Marcar ${esc(task.name)} como concluída">Concluída</label></div></div>
             <p class="quest-short">${esc(task.objectives[0]?.description || 'Descrição não disponibilizada pela fonte de dados.')}</p>
             <details class="quest-description" data-quest-open="${esc(questOpenKey(taskKey))}" ${questIsOpen(taskKey, !!query) ? 'open' : ''}>
               <summary>Como fazer e fotos · ${task.objectives.length} objetivo(s)</summary>
@@ -910,6 +1076,8 @@ function viewQuests() {
         }).join('')}</details>`;
     }).join('') || '<div class="empty">Nenhuma missão corresponde aos filtros deste trader.</div>'}`;
 }
+
+function viewQuests(){return escapeMissionSection()+viewTraderQuests();}
 
 // RAID: a lista viva usa as mesmas quantidades de Marcados.
 // Quando completa pela Raid, a marcação é removida e uma ficha verde fica até duas confirmações.
@@ -1001,8 +1169,8 @@ function render() {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
   $('#nmarked').textContent = markedRows().length;
   $('#nraid').textContent = raidItemRows().length + Object.keys(S.raidQuests[S.mode]).filter(id => raidQuestSelected(id)).length;
-  const v = { items: viewItems, marked: viewMarked, hideout: viewHideout, barters: viewBarters, quests: viewQuests, raid: viewRaid }[S.tab];
-  if (!['quests', 'raid'].includes(S.tab) && !DB.items.length && !DB.stations.length && !DB.barters.length && !DB.tasks.length) {
+  const v = { items: viewItems, marked: viewMarked, hideout: viewHideout, barters: viewBarters, quests: viewQuests, raid: viewRaid, escape: viewEscape }[S.tab];
+  if (!['quests', 'raid', 'escape'].includes(S.tab) && !DB.items.length && !DB.stations.length && !DB.barters.length && !DB.tasks.length) {
     $('#view').innerHTML = `<div class="empty">${DB.errors.length ? 'Não foi possível carregar os dados.<br>' + esc(DB.errors.join(' | ')) : 'Carregando dados do tarkov.dev…'}</div>`;
     return;
   }
@@ -1036,7 +1204,9 @@ document.addEventListener('toggle', e => {
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act;
-  if (a === 'category') { toggleCategory(t.dataset.category); }
+  if (a === 'escapeEnding') { if(ESCAPE_ROUTES.some(r=>r.id===t.dataset.id)){S.escapeEnding=t.dataset.id;save();render();} }
+  else if (a === 'escapeMission') { S.tab='quests';S.questOpen[questOpenKey('escape-missions')]=true;save();render();const card=document.querySelector('[data-escape-node="'+t.dataset.id+'"]');card?.scrollIntoView?.({behavior:'smooth',block:'center'}); }
+  else if (a === 'category') { toggleCategory(t.dataset.category); }
   else if (a === 'questTrader') { S.questTrader = t.dataset.id; UI.questLevel = ''; save(); render(); }
   else if (a === 'reloadTasks') { DB.tasksState = 'idle'; loadAll(); }
   else if (a === 'moreItems') { UI.limit += 150; render(); }
@@ -1067,6 +1237,8 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const t = e.target; const a = t.dataset && t.dataset.act;
   if (a === 'questDone') { setQuestDone(t.dataset.id, t.checked); }
+  else if (a === 'questActive') { setQuestActive(t.dataset.id,t.checked); }
+  else if (t.id === 'escapeCase') { if(['kept','handed'].includes(t.value)){S.escapeCase[S.mode]=t.value;save();render();} }
   else if (a === 'raidQuest') { setRaidQuest(t.dataset.id, t.checked); }
   else if (a === 'done') { if (t.checked) S.done[t.dataset.key] = true; else delete S.done[t.dataset.key]; save(); render(); }
   else if (t.id === 'questStatus') { UI.questStatus = t.value; render(); }

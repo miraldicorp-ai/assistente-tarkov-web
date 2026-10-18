@@ -14,6 +14,7 @@ Aplicação em português para consultar itens e preços de Escape from Tarkov e
 - Progresso de missões salvo separadamente para PVE e PVP, com filtros por nível e conclusão.
 - Salvamento automático de marcações e progresso no navegador.
 - Aba Raid com missões à esquerda e no centro e stash de quatro colunas à direita, com tamanho padrão dos itens e novas linhas automáticas.
+- Prepare for Escape: ícones dos quatro finais, árvores das rotas, ramos de provas e porcentagem de conclusão ligada às marcações em Missões.
 
 ## Como usar
 
@@ -46,6 +47,14 @@ O nível mínimo não garante que a missão esteja liberada: facção, missões 
 Marque **Na Raid** na aba Missões para acompanhar a tarefa na aba **Raid**. Expanda a missão para consultar o mesmo guia, objetivos e fotos. A seleção é independente da caixa **Concluída** e fica salva por modo PVE/PVP.
 
 Todos os itens marcados aparecem no stash, somando as quantidades das diferentes origens. Cada clique em um item soma uma unidade em **Tenho**, assim como na aba Marcados. Durante a coleta, a borda fica amarela; ao completar, as necessidades são desmarcadas e uma ficha verde permanece na Raid. O próximo clique confirma e mantém a ficha; o seguinte a remove. O andamento e essas confirmações ficam salvos ao fechar o navegador.
+
+## Prepare for Escape
+
+Clique no ícone de Savior, Debtor, Survivor ou Fallen para abrir o roteiro correspondente. Informe a escolha da caixa em Falling Skies para adaptar as etapas condicionais. Use **Ver em Missões** e marque **Em andamento** (amarelo) ou **Concluída** (verde) no grupo **História · Prepare for Escape**, acima dos traders. As tarefas comuns dos traders também ganharam a opção Em andamento.
+
+O percentual conta etapas e provas concluídas do roteiro selecionado, sem contar tarefas em andamento. As provas são alternativas: Savior conta oito e Debtor duas, sem exigir todos os nove ramos. Na rota Savior, a cadeia de conclusão de The Price of Independence vem da API e usa os mesmos IDs das tarefas dos traders. Aguarde o carregamento dessas tarefas para o denominador incluir essa cadeia. PVE e PVP têm progresso independente.
+
+Os capítulos da história não são fornecidos pelo endpoint de tarefas dos traders. O catálogo das rotas foi organizado no próprio código a partir dos guias da [Wiki](https://escapefromtarkov.fandom.com/wiki/The_Ticket) e do [TarkovForge](https://tarkovforge.web.app/story-guide/endings/savior), revisados em 18/10/2026; nomes em português são traduções de apoio. A árvore resume etapas, sem substituir os objetivos internos dos capítulos. O percentual é uma organização manual, não uma confirmação de acesso no jogo. As escolhas do jogo podem ser irreversíveis e os requisitos podem mudar com atualizações. Ícones das conquistas: tarkov.dev / Battlestate Games.
 
 ## Créditos
 

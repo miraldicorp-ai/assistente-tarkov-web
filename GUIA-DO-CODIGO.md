@@ -186,3 +186,13 @@ As instruções por tipo são guias de apoio, não percursos conferidos missão 
 
 `raidCollectItem()` chama `collectOne(id, 'raid')` para somar uma unidade. Ao completar, as marcações originais são removidas e uma ficha é salva em `S.raidCollected[S.mode]`, com estado `complete` (verde). No clique seguinte o estado passa para `confirmed`, ainda verde; no próximo a ficha é apagada. Marcar uma nova necessidade do mesmo produto limpa a ficha anterior. A coleta pela aba Marcados continua removendo o item assim que ele é completado.
 
+## 13. Prepare for Escape e progresso compartilhado
+
+`ESCAPE_NODES` guarda etapas da história com IDs estáveis prefixados por `escape:`. `ESCAPE_ROUTES` define as rotas dos quatro finais. Os capítulos não vêm da API de tarefas dos traders; o catálogo é editorial, com nomes PT/EN, fontes e data de revisão. Ao atualizar requisitos do jogo, revise esse catálogo.
+
+`escapeRouteSteps()` adiciona ou retira condições conforme a escolha da caixa em `S.escapeCase[S.mode]`. `escapeTree()` desenha etapas sequenciais e ramos alternativos de provas; o CSS usa linhas, setas e grades sem bibliotecas externas. `escapeTraderChain()` segue apenas pré-requisitos cujo único estado aceito é `complete`, mantendo tarefas alternativas separadas. As outras condições continuam nos guias. A árvore dos traders agrupa tarefas por profundidade e liga os pré-requisitos pelo nome.
+
+`questActive` registra andamento por modo. `setQuestDone()` retira o andamento ao concluir. `escapeNode()` consulta os mesmos registros usados na aba Missões para aplicar as classes `active` (amarelo) e `complete` (verde). A interface continua identificando o estado por texto, além da cor.
+
+`escapeStats()` calcula concluídas / total do roteiro e arredonda para baixo. Cada prova concluída vale uma unidade, limitada à quantidade exigida pelo final (oito ou duas). Tarefas de trader são contadas uma vez por ID, após carregadas; andamento não conta como conclusão. `escapeMissionSection()` mostra os controles da história em Missões mesmo se a API de traders falhar. O progresso fica no mesmo `localStorage` do restante do aplicativo.
+
