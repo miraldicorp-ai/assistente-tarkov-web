@@ -104,6 +104,23 @@ input.q{width:70px}
 .quest-description ul{padding-left:20px;margin:8px 0}
 .quest-description li{margin:7px 0;white-space:pre-line}
 .quest-note{font-size:12px;color:var(--mut)}
+.quest-name-en{display:block;margin-top:3px;font-size:12px;color:var(--mut);font-weight:400}
+.quest-guide-media{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin:12px 0}
+.quest-scene{margin:0;max-width:340px}
+.quest-scene img{display:block;max-width:100%;max-height:210px;border-radius:6px;object-fit:contain;background:#101116}
+.quest-scene figcaption,.quest-item-photo figcaption{font-size:11px;color:var(--mut);margin-top:5px}
+.quest-guide-links{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.quest-guide-links a{color:var(--gold);border:1px solid var(--line);border-radius:6px;padding:5px 9px;text-decoration:none}
+.quest-guide-links a:hover{border-color:var(--gold)}
+.quest-steps{margin:12px 0;padding-left:24px}
+.quest-steps>li{padding:8px 0 12px;border-bottom:1px solid var(--line)}
+.quest-steps h4{font-size:13px;margin:0 0 6px}
+.quest-steps p{margin:5px 0}
+.quest-related-items{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.quest-item-photo{margin:0;width:95px;text-align:center}
+.quest-item-photo img{width:80px;height:70px;object-fit:contain;background:#101116;border-radius:5px}
+.quest-conditions{font-size:12px;color:var(--mut)}
+.quest-guide-intro{font-size:12px;color:var(--mut);line-height:1.5}
 .quest-level-label{color:var(--gold);font-size:12px;margin-left:7px;font-weight:400}
 @media(max-width:550px){.quest-traders{grid-template-columns:repeat(3,minmax(0,1fr))}.quest-trader img{width:54px;height:54px}.quest-profile img{width:64px;height:64px}.quest-card-head{gap:8px}.quest-level>summary{align-items:baseline;flex-wrap:wrap;gap:3px}}
 /* Responsividade: estas regras entram em ação em telas de até 800 px. A segunda regra mantém Tenho, Faltam e custo visíveis nos Marcados. */
@@ -207,7 +224,7 @@ const save = () => {
 // ---------- dados ----------
 // DADOS EM MEMÓRIA: DB guarda as respostas da API apenas enquanto a página está aberta.
 // DB.map é um Map: permite localizar um item pelo ID usando get(id), sem percorrer a lista inteira.
-const DB = { items: [], map: new Map(), stations: [], barters: [], traders: [], tasks: [], taskMap: new Map(), tasksState: 'idle', tasksError: '', updated: null, errors: [] };
+const DB = { items: [], map: new Map(), stations: [], barters: [], traders: [], tasks: [], questItems: new Map(), taskMap: new Map(), tasksState: 'idle', tasksError: '', updated: null, errors: [] };
 // UI guarda controles temporários: busca, ordenação e limite de resultados. As buscas não são salvas ao fechar.
 // hideoutOpen é restaurado de S; as categorias selecionadas ficam diretamente em S.categories e são salvas.
 const UI = { limit: 150, q: '', sort: 'price', onlyMarked: false, bq: '', btrader: '', bsort: 'profit', bOnlyMarked: false, hq: '', tq: '', questStatus: 'all', questLevel: '', hideoutOpen: new Map(Object.entries(S.hideoutOpen)) };
@@ -296,7 +313,8 @@ async function localized(mode, endpoint) {
     getJSON(mode, endpoint + '_pt').catch(() => ({})),
     getJSON(mode, endpoint + '_en').catch(() => ({}))
   ]);
-  return { data, translate: (key, fallback) => pt[key] || en[key] || fallback || key };
+  return { data, translate: (key, fallback) => pt[key] || en[key] || fallback || key,
+    english: (key, fallback) => en[key] || fallback || key };
 }
 // NORMALIZAÇÃO: adapta a estrutura recebida para o formato que a interface usa.
 // map() transforma cada item em um novo objeto. Aqui também são associados categorias, comerciantes e preços válidos.
@@ -306,6 +324,7 @@ function normalizeItems(source, translate, traders, taxonomy = {}) {
     id: item.id, name: translate(item.name, item.normalizedName || item.id),
     shortName: translate(item.shortName, item.normalizedName || item.id),
     iconLink: item.iconLink, width: item.width, height: item.height,
+    guideImageLink: item.image512pxLink || item.baseImageLink || item.iconLink,
     groups: itemGroups(item, taxonomy),
     updated: item.lastScan || item.updated,
     lastLowPrice: item.lastLowPrice > 0 ? item.lastLowPrice : null,
@@ -327,17 +346,27 @@ function normalizeItems(source, translate, traders, taxonomy = {}) {
 }
 // A API associa missões ao ID do trader. Aqui traduzimos os nomes e os objetivos.
 // A descrição mostrada vem dos objetivos reais; não inventamos diálogos ausentes na API.
-function normalizeTasks(source, translate) {
+function normalizeTasks(source, translate, english = translate) {
   if (!source || typeof source !== 'object') throw new Error('Lista de missões inválida');
   return Object.values(source).map(task => ({
     id: task.id, traderId: task.trader,
     name: translate(task.name, task.normalizedName || task.id),
+    nameEN: english(task.name, task.normalizedName || task.id),
+    imageLink: task.taskImageLink || '', wikiLink: task.wikiLink || '',
+    mapId: task.map || null,
+    neededKeys: (task.neededKeys || []).flatMap(entry => entry.keys || []),
     minPlayerLevel: Number.isFinite(task.minPlayerLevel) && task.minPlayerLevel > 0 ? task.minPlayerLevel : null,
     faction: task.factionName || 'Any',
     prerequisites: (task.taskRequirements || []).map(requirement => ({ id: requirement.task, statuses: requirement.status || [] })),
     objectives: (task.objectives || []).map(objective => ({
       description: translate(objective.description, 'Objetivo sem descrição disponível'),
-      count: objective.count, optional: !!objective.optional, foundInRaid: !!objective.foundInRaid
+      type: objective.type, count: objective.count, optional: !!objective.optional, foundInRaid: !!objective.foundInRaid,
+      itemIds: [...new Set([...(objective.items || []), objective.item, objective.questItem, objective.markerItem, ...(objective.useAny || []), ...(objective.containsAll || []).flat(), ...(objective.usingWeapon || []), ...(objective.usingWeaponMods || []).flat(), ...(objective.wearing || []).flat()].filter(id => typeof id === 'string'))],
+      mapIds: [...new Set([...(objective.maps || []), ...(objective.zones || []).map(zone => zone.map), ...(objective.possibleLocations || []).map(location => location.map)].filter(Boolean))],
+      distance: objective.distance, timeFromHour: objective.timeFromHour, timeUntilHour: objective.timeUntilHour,
+      bodyParts: (objective.bodyParts || []).map(part => translate(part)),
+      buildAttributes: objective.buildAttributes || {}, level: objective.level,
+      traderId: objective.trader, taskId: objective.task, statuses: objective.status || []
     }))
   }));
 }
@@ -351,7 +380,7 @@ async function loadAll() {
   DB.errors = [];
   // Os dados do modo anterior nunca são exibidos como preços do novo modo.
   if (DB.mode !== mode) {
-    Object.assign(DB, { items: [], map: new Map(), stations: [], barters: [], traders: [], tasks: [], taskMap: new Map(), tasksState: 'idle', tasksError: '', updated: null, mode });
+    Object.assign(DB, { items: [], map: new Map(), stations: [], barters: [], traders: [], tasks: [], questItems: new Map(), taskMap: new Map(), tasksState: 'idle', tasksError: '', updated: null, mode });
     UI.questLevel = '';
     render();
   }
@@ -380,7 +409,13 @@ async function loadAll() {
     const taskData = value(4);
     try {
       if (!taskData) throw new Error(results[4].reason?.message || 'Falha ao carregar missões');
-      DB.tasks = normalizeTasks(taskData.data.tasks, taskData.translate);
+      DB.tasks = normalizeTasks(taskData.data.tasks, taskData.translate, taskData.english);
+      DB.questItems = new Map(Object.values(taskData.data.questItems || {}).map(item => [item.id, {
+        id: item.id, name: taskData.translate(item.name, item.normalizedName || item.id),
+        shortName: taskData.translate(item.shortName, item.normalizedName || item.id),
+        guideImageLink: item.image512pxLink || item.baseImageLink || item.iconLink,
+        iconLink: item.iconLink
+      }]));
       DB.taskMap = new Map(DB.tasks.map(task => [task.id, task]));
       DB.tasksState = 'ready';
     } catch (error) {
@@ -671,6 +706,86 @@ function setQuestDone(id, checked) {
 function questTraderImage(trader, sizeClass = '') {
   return trader.imageLink ? `<img class="${sizeClass}" loading="lazy" src="${esc(trader.imageLink)}" alt="Foto de ${esc(trader.name)}">` : '<span aria-hidden="true">👤</span>';
 }
+// URLs visuais e de guias vêm da fonte; aceita somente os provedores usados pelo projeto.
+function questGuideURL(value, kind = 'image') {
+  try {
+    const url = new URL(value);
+    const allowed = kind === 'image' ? ['assets.tarkov.dev'] : ['escapefromtarkov.fandom.com', 'escapefromtarkov.wiki', 'tarkov.dev'];
+    return url.protocol === 'https:' && allowed.includes(url.hostname) ? url.href : '';
+  } catch (_) { return ''; }
+}
+// Metadados leves dos mapas evitam baixar todos os pontos de spawn só para mostrar seus nomes.
+const QUEST_MAPS = {"55f2d3fd4bdc2d5f408b4567":{"name":"Factory","slug":"factory"},"56f40101d2720b2a4d8b45d6":{"name":"Customs","slug":"customs"},"5704e3c2d2720bac5b8b4567":{"name":"Woods","slug":"woods"},"5704e4dad2720bb55b8b4567":{"name":"Lighthouse","slug":"lighthouse"},"5704e554d2720bac5b8b456e":{"name":"Shoreline","slug":"shoreline"},"5704e5fad2720bc05b8b4567":{"name":"Reserve","slug":"reserve"},"5714dbc024597771384a510d":{"name":"Interchange","slug":"interchange"},"5714dc692459777137212e12":{"name":"Streets of Tarkov","slug":"streets-of-tarkov"},"59fc81d786f774390775787e":{"name":"Factory à Noite","slug":"night-factory"},"5b0fc42d86f7744a585f9105":{"name":"The Lab","slug":"the-lab"},"653e6760052c01c1c805532f":{"name":"Ground Zero","slug":"ground-zero"},"65b8d6f5cdde2479cb2a3125":{"name":"Ground Zero 21+","slug":"ground-zero-21"},"65cc8f81a9aac3e77d0cfd3e":{"name":"Terminal","slug":"terminal"},"6733700029c367a3d40b02af":{"name":"O Labirinto","slug":"the-labyrinth"},"68236e8153654e8c1200798a":{"name":"Ground Zero Tutorial","slug":"ground-zero-tutorial"},"69af492a4819ea4ba10a69c5":{"name":"Icebreaker","slug":"icebreaker"},"6a294a5b5eb5f9a1700417b7":{"name":"The Lab (Dark)","slug":"the-lab-dark"}};
+function questRelatedPhotos(ids, heading) {
+  const items = [...new Set(ids)].map(id => DB.questItems.get(id) || DB.map.get(id)).filter(Boolean);
+  if (!items.length) return '';
+  const photos = items.slice(0, 8).map(item => {
+    const image = questGuideURL(item.guideImageLink || item.iconLink);
+    return image ? `<figure class="quest-item-photo"><a href="${esc(image)}" target="_blank" rel="noopener noreferrer" aria-label="Ampliar foto de ${esc(item.name)}"><img src="${esc(image)}" alt="${esc(item.name)}" loading="lazy"></a><figcaption>${esc(item.name)}</figcaption></figure>` : '';
+  }).join('');
+  return `<p class="quest-conditions">${esc(heading)}${items.length > 8 ? ' · mostrando 8 exemplos de ' + items.length : ''}</p><div class="quest-related-items">${photos}</div>${items.length > 8 ? `<details><summary>Ver lista completa de itens relacionados</summary><p>${items.map(item => esc(item.name)).join(' · ')}</p></details>` : ''}`;
+}
+function questObjectiveHelp(objective) {
+  // As orientações explicam a ação do objetivo; locais, alvos e requisitos vêm da descrição da API.
+  const help = {
+    visit: 'Vá ao local indicado no objetivo e entre na área de interação até o jogo registrar a visita.',
+    findItem: 'Obtenha a quantidade de itens especificada e confira as condições abaixo antes de separar o material para a missão.',
+    giveItem: 'Com os itens disponíveis no inventário, abra esta missão no trader e use a opção de entregar os itens aceitos. Confira a quantidade e a condição exigidas.',
+    findQuestItem: 'Localize e recolha o objeto de missão indicado. Confira o inventário de missão e os objetivos de extração ou entrega antes de sair da raid.',
+    giveQuestItem: 'Abra esta missão no trader e entregue o objeto de missão recolhido. Confira os demais objetivos antes de concluir a tarefa.',
+    mark: 'Leve o marcador relacionado ao objetivo. Vá ao ponto descrito, use a interação para posicioná-lo e aguarde a confirmação do temporizador indicado pelo jogo.',
+    plantItem: 'Leve o item exigido até o local descrito e conclua a interação de depositar ou esconder. Aguarde a confirmação antes de sair da área.',
+    plantQuestItem: 'Com o objeto no inventário de missão, vá ao local indicado e conclua a interação de posicionar ou entregar no cenário.',
+    shoot: 'Cumpra o alvo e a quantidade descritos, respeitando as condições de arma, equipamento, distância, horário e parte do corpo quando exigidas.',
+    extract: 'Use o mapa e a extração indicados no objetivo. Confira no resultado da raid se o status de saída exigido pela missão foi atendido.',
+    buildWeapon: 'Monte a arma indicada e confira cada atributo exigido abaixo antes de entregá-la. As imagens ajudam a identificar a arma e as peças relacionadas.',
+    useItem: 'Leve um dos itens aceitos e use-o na área ou condição especificada no objetivo.',
+    skill: 'Desenvolva a habilidade indicada até o nível exigido no objetivo e confira o progresso no personagem.',
+    experience: 'Cumpra a condição de experiência ou progresso descrita no objetivo e confira o contador da missão.',
+    traderLevel: 'Alcance o nível de lealdade exigido com o trader indicado. Confira no próprio trader os requisitos de nível do jogador, reputação e comércio.',
+    traderStanding: 'Alcance a reputação exigida com o trader indicado no objetivo e confira o valor no perfil dele.',
+    sellItem: 'Venda ao trader indicado os itens e a quantidade descritos no objetivo; confira se o contador da missão foi atualizado.',
+    taskStatus: 'Cumpra o estado exigido da missão relacionada. Consulte os pré-requisitos e a descrição antes de escolher uma missão alternativa.',
+    dialogue: 'Abra o diálogo do trader indicado e escolha a interação solicitada no objetivo.',
+    globalVariable: 'Cumpra a condição específica descrita no objetivo e acompanhe a confirmação ou o contador no jogo.'
+  };
+  return help[objective.type] || 'Siga a ação e as condições descritas neste objetivo e confira sua confirmação na tela da missão.';
+}
+function questObjectiveConditions(objective) {
+  const conditions = [];
+  if (objective.count > 0) conditions.push('Quantidade: ' + objective.count);
+  if (objective.optional) conditions.push('Objetivo opcional');
+  if (objective.foundInRaid) conditions.push('Exige a condição encontrado em raid; confira a marca do item antes da entrega.');
+  if (objective.distance?.value > 0) conditions.push('Distância: ' + (objective.distance.compareMethod || '') + ' ' + objective.distance.value + ' m');
+  if (Number.isFinite(objective.timeFromHour) && Number.isFinite(objective.timeUntilHour) && objective.timeFromHour !== objective.timeUntilHour) conditions.push('Horário: ' + objective.timeFromHour + 'h até ' + objective.timeUntilHour + 'h');
+  if (objective.bodyParts?.length) conditions.push('Parte do corpo: ' + objective.bodyParts.join(', '));
+  if (objective.level > 0) conditions.push('Nível exigido neste objetivo: ' + objective.level);
+  const attributes = { accuracy: 'Precisão', durability: 'Durabilidade', effectiveDistance: 'Alcance efetivo', ergonomics: 'Ergonomia', height: 'Altura', magazineCapacity: 'Capacidade do carregador', muzzleVelocity: 'Velocidade do projétil', recoil: 'Recuo', weight: 'Peso', width: 'Largura' };
+  Object.entries(objective.buildAttributes || {}).forEach(([name, rule]) => {
+    if (Number.isFinite(rule?.value) && rule.value > 0) conditions.push((attributes[name] || name) + ': ' + (rule.compareMethod || '') + ' ' + rule.value);
+  });
+  return conditions;
+}
+function questExecutionGuide(task) {
+  const scene = questGuideURL(task.imageLink);
+  const wiki = questGuideURL(task.wikiLink, 'guide');
+  const mapIds = [...new Set([task.mapId, ...task.objectives.flatMap(objective => objective.mapIds || [])].filter(Boolean))];
+  const mapLinks = mapIds.map(id => QUEST_MAPS[id]).filter(Boolean).map(map => `<a href="https://tarkov.dev/map/${esc(map.slug)}" target="_blank" rel="noopener noreferrer">Mapa: ${esc(map.name)}</a>`).join('');
+  return `<p class="quest-guide-intro">Antes de sair, confirme que a missão está ativa e revise os requisitos. Este guia explica as ações dos objetivos; consulte a Wiki para rotas e fotos de localização. A foto da missão é uma referência visual, sem marcação do ponto exato.</p>
+    <div class="quest-guide-links">${wiki ? `<a href="${esc(wiki)}#Guide" target="_blank" rel="noopener noreferrer">Guia completo e fotos de locais · Wiki (EN)</a>` : ''}${mapLinks}</div>
+    ${scene ? `<div class="quest-guide-media"><figure class="quest-scene"><a href="${esc(scene)}" target="_blank" rel="noopener noreferrer"><img src="${esc(scene)}" alt="Referência visual da missão ${esc(task.name)} / ${esc(task.nameEN)}" loading="lazy"></a><figcaption>Referência da missão · imagem do tarkov.dev · clique para ampliar</figcaption></figure></div>` : ''}
+    ${questRelatedPhotos(task.neededKeys || [], 'Chaves relacionadas à missão; confira no guia quais acessos você pretende usar')}
+    <ol class="quest-steps">${task.objectives.map(objective => {
+      const mapNames = (objective.mapIds || []).map(id => QUEST_MAPS[id]?.name).filter(Boolean);
+      const conditions = questObjectiveConditions(objective);
+      return `<li><h4>${esc(objective.description)}</h4><p>${esc(questObjectiveHelp(objective))}</p>
+        ${mapNames.length ? `<p class="quest-conditions">Mapa(s): ${mapNames.map(esc).join(' / ')}</p>` : ''}
+        ${conditions.length ? `<ul class="quest-conditions">${conditions.map(condition => `<li>${esc(condition)}</li>`).join('')}</ul>` : ''}
+        ${questRelatedPhotos(objective.itemIds || [], 'Itens e equipamentos relacionados ao objetivo; podem ser alternativas')}
+      </li>`;
+    }).join('') || '<li>Objetivos não informados pela fonte.</li>'}</ol>
+    <p class="quest-note">Objetivos, nomes e imagens: tarkov.dev. O progresso continua sendo marcado manualmente.</p>`;
+}
 function viewQuests() {
   if (DB.tasksState === 'error') return `<div class="empty">Não foi possível carregar as missões.<br>${esc(DB.tasksError)}<p><button data-act="reloadTasks">Tentar novamente</button></p></div>`;
   if (DB.tasksState !== 'ready') return '<div class="empty" role="status">Carregando missões e traders do tarkov.dev…</div>';
@@ -686,7 +801,7 @@ function viewQuests() {
   const completed = allTraderTasks.filter(task => questIsDone(task.id)).length;
   const query = questSearchText(UI.tq).trim();
   const tasks = allTraderTasks.filter(task =>
-    (!query || questSearchText(task.name + ' ' + selected.name + ' ' + task.objectives.map(objective => objective.description).join(' ')).includes(query)) &&
+    (!query || questSearchText(task.name + ' ' + task.nameEN + ' ' + selected.name + ' ' + task.objectives.map(objective => objective.description).join(' ')).includes(query)) &&
     (UI.questStatus === 'all' || (UI.questStatus === 'done' ? questIsDone(task.id) : !questIsDone(task.id))) &&
     (!UI.questLevel || String(task.minPlayerLevel ?? 'unknown') === UI.questLevel));
   const levelSort = (a, b) => (a ?? Infinity) - (b ?? Infinity);
@@ -709,7 +824,7 @@ function viewQuests() {
       <select id="questStatus" aria-label="Filtrar por conclusão"><option value="all" ${UI.questStatus === 'all' ? 'selected' : ''}>Todas as missões</option><option value="pending" ${UI.questStatus === 'pending' ? 'selected' : ''}>Pendentes</option><option value="done" ${UI.questStatus === 'done' ? 'selected' : ''}>Concluídas</option></select>
       <select id="questLevel" aria-label="Filtrar por nível mínimo do jogador"><option value="">Todos os níveis</option>${levels.map(level => `<option value="${level ?? 'unknown'}" ${UI.questLevel === String(level ?? 'unknown') ? 'selected' : ''}>${levelLabel(level)}</option>`).join('')}</select>
       <span class="mut">${tasks.length} missão(ões)</span></div>
-    <p class="quest-note">O nível exibido é o mínimo do jogador. Outras missões, facção ou requisitos também podem ser necessários. As descrições abaixo são os objetivos fornecidos pelo tarkov.dev.</p>
+    <p class="quest-note">Nomes em português e inglês. Abra “Como fazer e fotos” para ver instruções por objetivo e imagens relacionadas. O nível mínimo do jogador não substitui outros pré-requisitos.</p>
     ${groups.map(level => {
       const levelTasks = tasks.filter(task => task.minPlayerLevel === level).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
       const key = 'level:' + selected.id + ':' + (level ?? 'unknown');
@@ -722,12 +837,12 @@ function viewQuests() {
             return esc(name) + (requirement.statuses.length ? ' (' + requirement.statuses.map(status => esc(taskStatusLabels[status] || status)).join(' / ') + ')' : '');
           });
           return `<article class="quest-card ${done ? 'complete' : ''}" data-quest-id="${esc(task.id)}">
-            <div class="quest-card-head"><h3>${esc(task.name)}${task.faction !== 'Any' ? `<span class="quest-level-label">${esc(task.faction)}</span>` : ''}</h3>
+            <div class="quest-card-head"><h3><span lang="pt-BR">${esc(task.name)}</span><span class="quest-name-en" lang="en">${esc(task.nameEN)}</span>${task.faction !== 'Any' ? `<span class="quest-level-label">${esc(task.faction)}</span>` : ''}</h3>
               <label class="quest-check"><input type="checkbox" data-act="questDone" data-id="${esc(task.id)}" ${done ? 'checked' : ''} aria-label="Marcar ${esc(task.name)} como concluída">Concluída</label></div>
             <p class="quest-short">${esc(task.objectives[0]?.description || 'Descrição não disponibilizada pela fonte de dados.')}</p>
             <details class="quest-description" data-quest-open="${esc(questOpenKey(taskKey))}" ${questIsOpen(taskKey, !!query) ? 'open' : ''}>
-              <summary>Descrição e objetivos · ${task.objectives.length}</summary>
-              <ul>${task.objectives.map(objective => `<li>${esc(objective.description)}${objective.count > 0 ? `<span class="mut"> · quantidade: ${esc(objective.count)}</span>` : ''}${objective.foundInRaid ? '<span class="mut"> · encontrado em raid</span>' : ''}${objective.optional ? '<span class="mut"> · opcional</span>' : ''}</li>`).join('') || '<li>Objetivos não informados.</li>'}</ul>
+              <summary>Como fazer e fotos · ${task.objectives.length} objetivo(s)</summary>
+              ${questExecutionGuide(task)}
               ${requirements.length ? `<p class="quest-note">Pré-requisitos informados: ${requirements.join('; ')}.</p>` : ''}
             </details></article>`;
         }).join('')}</details>`;
@@ -856,6 +971,7 @@ setInterval(loadAll, REFRESH_MS);
 </script>
 </body>
 </html>
+
 
 
 

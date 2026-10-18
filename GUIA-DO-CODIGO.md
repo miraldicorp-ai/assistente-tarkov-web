@@ -164,3 +164,16 @@ No GitHub Desktop, use **Fetch origin** e depois **Pull origin**, quando dispon�
 - `S.questOpen` preserva as seções de níveis e objetivos abertas. Assim, marcar uma tarefa não fecha as seções que a pessoa estava lendo.
 
 A fonte fornece descrições dos objetivos; o aplicativo não cria diálogos narrativos ausentes. Missões anteriores, facção e outros requisitos podem impedir o acesso mesmo após atingir o nível indicado. Os campos de busca, nível e situação filtram apenas as missões do trader selecionado.
+
+
+## 11. Nomes bilíngues e guia visual das missões
+
+`localized()` agora devolve também `english()`, que lê o arquivo `_en` separadamente. `normalizeTasks()` guarda `name` em português (com alternativa em inglês quando necessário) e `nameEN` com o nome original em inglês. A busca examina os dois nomes.
+
+`questExecutionGuide()` monta o guia a partir dos objetivos recebidos da API. `questObjectiveHelp()` explica a ação correspondente a cada tipo, como localizar, entregar, marcar, extrair ou montar uma arma. `questObjectiveConditions()` mostra condições fornecidas pela fonte, como quantidades, encontrado em raid, distância, horário e atributos de armas.
+
+`taskImageLink` fornece a imagem de referência da missão. `DB.questItems` e `DB.map` fornecem fotos dos objetos e equipamentos relacionados. `questRelatedPhotos()` exibe até oito exemplos por objetivo, com lista completa quando houver mais alternativas. As imagens têm carregamento adiado (`loading="lazy"`) e podem ser abertas em tamanho original.
+
+`QUEST_MAPS` contém metadados leves extraídos de `json.tarkov.dev/pve/maps` e suas traduções, consultados em 18/10/2026. Isso evita baixar todo o arquivo de pontos de spawn, de aproximadamente 9 MB, apenas para mostrar nomes e links. Os metadados precisam ser revistos quando novos mapas forem adicionados.
+
+As instruções por tipo são guias de apoio, não percursos conferidos missão por missão. Fotos de locais e rotas detalhadas ficam no guia externo da Wiki informado pela API. `questGuideURL()` aceita apenas os endereços HTTPS dos provedores utilizados para imagens e guias. Todo texto é escapado antes de entrar no HTML.

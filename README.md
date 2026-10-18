@@ -9,7 +9,8 @@ Aplicação em português para consultar itens e preços de Escape from Tarkov e
 - Marcações independentes por estação e nível do Hideout.
 - Quantidade que já tenho, quantidade que falta e custo restante.
 - Consulta de trocas e requisitos das construções.
-- Missões por trader, com foto, nível mínimo do jogador, descrição dos objetivos e caixa de conclusão.
+- Missões por trader, com foto, nomes em português e inglês, nível mínimo do jogador e caixa de conclusão.
+- Guias de apoio por objetivo, com imagens de referência da missão e dos itens, condições de execução e acesso à Wiki e aos mapas.
 - Progresso de missões salvo separadamente para PVE e PVP, com filtros por nível e conclusão.
 - Salvamento automático de marcações e progresso no navegador.
 
@@ -35,9 +36,9 @@ O `index.html` inclui comentários em português nas principais partes de HTML, 
 
 ## Missões
 
-Na aba **Missões**, selecione a foto de um trader. As tarefas são agrupadas pelo nível mínimo do jogador e incluem a descrição dos objetivos, quantidades e pré-requisitos fornecidos pelo tarkov.dev. Marque **Concluída** para registrar o progresso; desmarque para desfazer.
+Na aba **Missões**, selecione a foto de um trader. As tarefas são agrupadas pelo nível mínimo do jogador e mostram os nomes em português e inglês. Abra **Como fazer e fotos** para consultar instruções por objetivo, fotos da missão e dos itens envolvidos, quantidades, condições e pré-requisitos fornecidos pelo tarkov.dev. A busca aceita ambos os nomes. Marque **Concluída** para registrar o progresso; desmarque para desfazer.
 
-O nível mínimo não garante que a missão esteja liberada: facção, missões anteriores e outros requisitos também podem ser necessários. O progresso é manual e fica salvo neste navegador, separadamente para PVE e PVP. As descrições disponíveis são as dos objetivos; a fonte não fornece os diálogos narrativos completos.
+O nível mínimo não garante que a missão esteja liberada: facção, missões anteriores e outros requisitos também podem ser necessários. O progresso é manual e fica salvo neste navegador, separadamente para PVE e PVP. As instruções de apoio explicam as ações descritas nos objetivos; não são rotas verificadas individualmente para cada missão. As imagens são referências da missão e dos itens. Para localização exata e fotos de pontos do cenário, use o link da Wiki incluído no guia.
 
 ## Créditos
 
