@@ -251,7 +251,10 @@ function normalizeItems(source, translate, traders, taxonomy = {}) {
     updated: item.lastScan || item.updated,
     lastLowPrice: item.lastLowPrice > 0 ? item.lastLowPrice : null,
     avg24hPrice: item.avg24hPrice > 0 ? item.avg24hPrice : null,
-    buyFromTrader: item.buyFromTrader || [],
+    buyFromTrader: (item.buyFromTrader || []).map(offer => ({
+  ...offer,
+  traderName: traders.get(offer.trader)?.name || 'Comerciante'
+})),
     sellFor: (item.sellToTrader || []).map(offer => ({
       priceRUB: offer.priceRUB,
       vendor: { name: traders.get(offer.trader)?.name || 'Comerciante' }
@@ -383,7 +386,36 @@ function chip(ref, count, source) {
   return `<div class="chip ${hl ? 'hl' : ''}" data-act="mark" data-id="${esc(it.id)}" data-qty="${count || 1}" ${source ? `data-station-id="${esc(source.stationId)}" data-level="${esc(source.level)}"` : ''} title="Clique para ${hl ? 'desmarcar' : 'marcar'}">
     <img loading="lazy" src="${esc(it.iconLink)}" alt=""><div>${hl ? '★ ' : ''}${esc(it.shortName || it.name)} ×${count}<small>${fmt(multiplyPrice(p, count))}</small></div></div>`;
 }
+// Monta a comparação de compras de um item.
+function purchaseComparison(item) {
+  const fleaPrice = item.lastLowPrice || item.avg24hPrice;
+  const fleaLabel = item.lastLowPrice
+    ? 'Flea · última coleta'
+    : 'Flea · média de 24h';
 
+  const offers = (item.buyFromTrader || [])
+    .filter(offer => offer.priceRUB > 0)
+    .sort((a, b) => a.priceRUB - b.priceRUB);
+
+  const traderRows = offers.map(offer => `
+    <div class="p">
+      ${esc(offer.traderName)} · ${fmt(offer.priceRUB)}
+      <small>
+        Nível do comerciante:
+        ${offer.minTraderLevel ?? 'não informado'}
+        ${offer.taskUnlock ? ' · Exige desbloqueio por missão' : ''}
+      </small>
+    </div>
+  `).join('');
+
+  return `
+    <details class="purchase-comparison">
+      <summary>Comparar compras</summary>
+      <div class="p">${fleaLabel}: ${fmt(fleaPrice)}</div>
+      ${traderRows || '<p class="mut">Nenhuma oferta de comerciante disponível.</p>'}
+    </details>
+  `;
+}
 // ---------- abas ----------
 // ABA ITENS: filter() seleciona resultados; sort() ordena; slice() limita o que é exibido.
 // O limite inicial de 150 evita criar milhares de elementos de uma vez. Mostrar mais aumenta UI.limit.
@@ -415,7 +447,11 @@ function viewItems() {
     return `<div class="row ${m ? 'hl' : ''}">
       <button class="star ${m ? 'on' : ''}" data-act="mark" data-id="${esc(i.id)}" title="Marcar como necessário">${m ? '★' : '☆'}</button>
       <img loading="lazy" src="${esc(i.iconLink)}" alt="">
-      <div class="name">${esc(i.name)}<small>${esc(i.shortName)}</small></div>
+      <div class="name">
+  ${esc(i.name)}
+  <small>${esc(i.shortName)}</small>
+  ${purchaseComparison(i)}
+</div>
       <div class="p">${fmt(i.lastLowPrice)}<small>média 24h: ${fmt(i.avg24hPrice)}</small></div>
       <div class="p">${t.best ? fmt(t.best) : '—'}<small>${esc(t.who)}</small></div>
       <div class="p">${fmt(slot(i))}</div></div>`;
