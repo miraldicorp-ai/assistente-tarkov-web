@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarkov – Itens, Hideout e Trocas</title>
+<style>
+:root{--bg:#14151a;--panel:#1d1f26;--panel2:#262932;--line:#343845;--txt:#e6e3d8;--mut:#8d909c;--gold:#e8c14d;--grn:#6fcf7f;--red:#e0675f;--acc:#c9a227}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:10;background:#101116;border-bottom:1px solid var(--line);padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+h1{font-size:17px;margin:0;color:var(--gold);letter-spacing:.5px}
+.sp{flex:1}
+select,input,button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit}
+button{cursor:pointer}button:hover{border-color:var(--gold)}
+#status{color:var(--mut);font-size:12px}
+#storage-status{font-size:12px}
+nav{display:flex;gap:4px;padding:10px 16px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav button{border-radius:6px 6px 0 0;border-bottom:none;background:transparent;padding:8px 16px}
+nav button.on{background:var(--panel);color:var(--gold);border-color:var(--line)}
+.badge{background:var(--gold);color:#111;border-radius:10px;padding:0 7px;font-size:12px;margin-left:6px;font-weight:700}
+main{padding:14px 16px;max-width:1200px;margin:0 auto}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.bar input[type=search]{flex:1;min-width:200px}
+.category-panel{margin-bottom:14px;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.category-heading{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+.category-filters{display:flex;gap:7px;flex-wrap:wrap}
+.category-filter{border-radius:20px;padding:6px 12px;display:inline-flex;align-items:center;gap:7px}
+.category-filter[aria-pressed=true]{background:#3b3218;color:var(--gold);border-color:var(--gold)}
+.category-filter:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.category-count{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.category-filter[aria-pressed=true] .category-count{color:var(--gold)}
+label.ck{display:flex;gap:6px;align-items:center;color:var(--mut)}
+.row{display:grid;grid-template-columns:34px 48px 1fr 170px 130px 90px;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:6px}
+.row.hd{background:transparent;border:none;color:var(--mut);font-size:12px;padding-top:0}
+.row.hl,.chip.hl,.card.hl{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;background:#2a2615}
+.row img{width:48px;height:48px;object-fit:contain;background:#0d0e12;border-radius:4px}
+.name small{color:var(--mut);margin-left:6px}
+.p small{display:block;color:var(--mut)}
+.star{font-size:20px;line-height:1;background:transparent;border:none;color:var(--mut);padding:2px}
+.star.on{color:var(--gold)}
+.mut{color:var(--mut)}.pos{color:var(--grn)}.neg{color:var(--red)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.card h3{margin:0 0 6px;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chip{display:flex;gap:6px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:3px 8px 3px 4px;cursor:pointer}
+.chip img{width:32px;height:32px;object-fit:contain;background:#0d0e12;border-radius:4px}
+.chip small{color:var(--mut);display:block;font-size:11px}
+.arrow{align-self:center;color:var(--mut);font-size:18px;padding:0 6px}
+.brt{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+details{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:10px;padding:6px 12px}
+summary{cursor:pointer;font-weight:600;padding:6px 0}
+.lvl{border-top:1px solid var(--line);padding:8px 0}
+.lvl.done{opacity:.5}
+.lvh{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.tot{background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:10px 14px;margin-bottom:12px;display:flex;gap:20px;flex-wrap:wrap}
+.tot b{color:var(--gold)}
+.empty{color:var(--mut);padding:30px;text-align:center}
+input.q{width:70px}
+.marked-quantity{display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.marked-quantity label{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.row.marked-row,.row.marked-head{grid-template-columns:34px 48px minmax(0,1fr) 135px 210px 135px}
+.marked-row.complete{opacity:.65}
+.marked-remaining{margin-top:4px;font-weight:600}
+@media(max-width:800px){.row{grid-template-columns:30px 40px 1fr 110px}.row>:nth-child(5),.row>:nth-child(6){display:none}}
+@media(max-width:800px){.row.marked-row,.row.marked-head{grid-template-columns:30px 40px minmax(0,1fr) 110px}.row.marked-row>:nth-child(5){display:flex;grid-column:3 / -1;flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px}.row.marked-row>:nth-child(6){display:block;grid-column:3 / -1}.marked-row .q{width:90px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚔ TARKOV · Itens, Hideout &amp; Trocas</h1>
+  <span class="sp"></span>
+  <span id="status">—</span>
+  <span id="storage-status" role="status" title="Marcações e quantidades ficam no armazenamento deste navegador, neste computador."></span>
+  <select id="mode" title="Modo de jogo">
+    <option value="pve">PVE</option>
+    <option value="regular">PVP</option>
+  </select>
+  <button id="refresh">↻ Atualizar preços</button>
+</header>
+<nav id="tabs">
+  <button data-tab="marked">⭐ Marcados<span class="badge" id="nmarked">0</span></button>
+  <button data-tab="items">Itens</button>
+  <button data-tab="hideout">Hideout</button>
+  <button data-tab="barters">Trocas</button>
+</nav>
+<main id="view"></main>
+
+<script>
+const API = 'https://json.tarkov.dev';
+const REFRESH_MS = 5 * 60 * 1000;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('pt-BR') + ' ₽';
+
+// ---------- estado persistido ----------
+const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, mode: 'pve', tab: 'items' };
+let S = (() => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem('tkv-app') || '{}')); } catch (e) { return { ...DEF }; } })();
+if (!['regular', 'pve'].includes(S.mode)) S.mode = 'pve';
+if (!['items', 'marked', 'hideout', 'barters'].includes(S.tab)) S.tab = 'items';
+if (!S.marked || typeof S.marked !== 'object') S.marked = {};
+// Converte o antigo “já tenho tudo” sem perder os itens salvos.
+for (const [id, mark] of Object.entries(S.marked)) {
+  if (!mark || typeof mark !== 'object') { delete S.marked[id]; continue; }
+  mark.qty = Math.max(1, Math.floor(Number(mark.qty) || 1));
+  const owned = Number(mark.owned ?? (mark.have ? mark.qty : 0));
+  mark.owned = Number.isFinite(owned) ? Math.max(0, Math.floor(owned)) : 0;
+  delete mark.have;
+}
+if (!S.done || typeof S.done !== 'object') S.done = {};
+if (!S.hideoutOpen || typeof S.hideoutOpen !== 'object' || Array.isArray(S.hideoutOpen)) S.hideoutOpen = {};
+const save = () => {
+  const status = $('#storage-status');
+  try {
+    localStorage.setItem('tkv-app', JSON.stringify(S));
+    status.textContent = '✓ Salvo neste PC';
+    status.className = 'pos';
+  } catch (e) {
+    status.textContent = '⚠ Não foi possível salvar neste navegador';
+    status.className = 'neg';
+  }
+};
+
+// ---------- dados ----------
+const DB = { items: [], map: new Map(), stations: [], barters: [], updated: null, errors: [] };
+const UI = { limit: 150, q: '', sort: 'price', onlyMarked: false, bq: '', btrader: '', bsort: 'profit', bOnlyMarked: false, hq: '', hideoutOpen: new Map(Object.entries(S.hideoutOpen)) };
+
+// As categorias vêm da classificação dos itens na API, sem depender do nome traduzido.
+const CATEGORIES = [
+  { id: 'food', label: 'Alimentos', icon: '🍞', slugs: ['food'] },
+  { id: 'drinks', label: 'Bebidas', icon: '🥤', slugs: ['drink'] },
+  { id: 'ammo', label: 'Munições', icon: '🎯', slugs: ['ammo', 'ammo-container'] },
+  { id: 'medical', label: 'Médicos', icon: '🩹', slugs: ['meds', 'medical-supplies'] },
+  { id: 'stimulants', label: 'Estimulantes', icon: '💉', slugs: ['stimulant'] },
+  { id: 'weapons', label: 'Armas', icon: '🔫', slugs: ['weapon', 'knife', 'throwable-weapon'] },
+  { id: 'mods', label: 'Peças e acessórios', icon: '🔧', slugs: ['weapon-mod', 'magazine'] },
+  { id: 'gear', label: 'Equipamentos', icon: '🛡️', slugs: ['equipment', 'chest-rig', 'backpack'] },
+  { id: 'keys', label: 'Chaves e cartões', icon: '🔑', slugs: ['key'] },
+  { id: 'barter', label: 'Itens de troca', icon: '📦', slugs: ['barter-item'] },
+  { id: 'containers', label: 'Caixas e contêineres', icon: '🧰', slugs: ['port-container', 'common-container', 'locking-container', 'random-loot-container'] },
+  { id: 'special', label: 'Especiais', icon: '🧭', slugs: ['special-item', 'map', 'info'] },
+  { id: 'other', label: 'Outros', icon: '🏷️', slugs: [] }
+];
+S.categories = Array.isArray(S.categories)
+  ? [...new Set(S.categories.filter(id => CATEGORIES.some(category => category.id === id)))] : [];
+function itemGroups(item, taxonomy) {
+  const slugs = new Set();
+  for (const categoryId of (item.categories || [])) {
+    let category = taxonomy[categoryId];
+    const visited = new Set();
+    while (category && !visited.has(category.id)) {
+      visited.add(category.id); slugs.add(category.normalizedName);
+      category = taxonomy[category.parent];
+    }
+  }
+  const groups = CATEGORIES.filter(category => category.slugs.some(slug => slugs.has(slug))).map(category => category.id);
+  return groups.length ? groups : ['other'];
+}
+function toggleCategory(id) {
+  if (id === 'all') S.categories = [];
+  else if (CATEGORIES.some(category => category.id === id)) {
+    S.categories = S.categories.includes(id) ? S.categories.filter(value => value !== id) : [...S.categories, id];
+  } else return;
+  UI.limit = 150;
+  save(); render();
+}
+const matchesCategory = item => !S.categories.length || S.categories.some(id => item.groups.includes(id));
+function categoryFilters(items) {
+  const counts = new Map(CATEGORIES.map(category => [category.id, 0]));
+  items.forEach(item => item.groups.forEach(id => counts.set(id, (counts.get(id) || 0) + 1)));
+  const button = (id, label, count, selected) => `<button type="button" class="category-filter" data-act="category" data-category="${id}" aria-pressed="${selected}">${label}<span class="category-count">${count}</span></button>`;
+  return `<section class="category-panel" aria-label="Filtros por categoria">
+    <div class="category-heading"><b>Categorias</b><span class="mut">Selecione uma ou mais · os filtros combinam com a busca e os marcados</span></div>
+    <div class="category-filters">${button('all', 'Todos', items.length, !S.categories.length)}${CATEGORIES.map(category => button(category.id, category.icon + ' ' + esc(category.label), counts.get(category.id), S.categories.includes(category.id))).join('')}</div>
+  </section>`;
+}
+
+// A API JSON mantém referências por ID e traduções em arquivos separados.
+async function getJSON(mode, endpoint) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
+  try {
+    const response = await fetch(API + '/' + mode + '/' + endpoint, {
+      signal: controller.signal, cache: 'no-cache', credentials: 'omit'
+    });
+    if (!response.ok) throw new Error(endpoint + ': HTTP ' + response.status);
+    const payload = await response.json();
+    if (!payload.data) throw new Error(endpoint + ': resposta sem dados');
+    return payload.data;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error(endpoint + ': tempo de conexão esgotado');
+    throw new Error(endpoint + ': ' + error.message);
+  } finally { clearTimeout(timeout); }
+}
+async function localized(mode, endpoint) {
+  const [data, pt, en] = await Promise.all([
+    getJSON(mode, endpoint),
+    getJSON(mode, endpoint + '_pt').catch(() => ({})),
+    getJSON(mode, endpoint + '_en').catch(() => ({}))
+  ]);
+  return { data, translate: (key, fallback) => pt[key] || en[key] || fallback || key };
+}
+function normalizeItems(source, translate, traders, taxonomy = {}) {
+  if (!source || typeof source !== 'object') throw new Error('Lista de itens inválida');
+  const items = Object.values(source).map(item => ({
+    id: item.id, name: translate(item.name, item.normalizedName || item.id),
+    shortName: translate(item.shortName, item.normalizedName || item.id),
+    iconLink: item.iconLink, width: item.width, height: item.height,
+    groups: itemGroups(item, taxonomy),
+    updated: item.lastScan || item.updated,
+    lastLowPrice: item.lastLowPrice > 0 ? item.lastLowPrice : null,
+    avg24hPrice: item.avg24hPrice > 0 ? item.avg24hPrice : null,
+    buyFromTrader: item.buyFromTrader || [],
+    sellFor: (item.sellToTrader || []).map(offer => ({
+      priceRUB: offer.priceRUB,
+      vendor: { name: traders.get(offer.trader)?.name || 'Comerciante' }
+    }))
+  }));
+  if (!items.length) throw new Error('A API retornou uma lista vazia');
+  return items;
+}
+let loadVersion = 0;
+async function loadAll() {
+  const version = ++loadVersion, mode = S.mode;
+  $('#status').textContent = 'Carregando ' + (mode === 'pve' ? 'PVE' : 'PVP') + '…';
+  $('#refresh').disabled = true;
+  DB.errors = [];
+  // Os dados do modo anterior nunca são exibidos como preços do novo modo.
+  if (DB.mode !== mode) {
+    Object.assign(DB, { items: [], map: new Map(), stations: [], barters: [], updated: null, mode });
+    render();
+  }
+  const results = await Promise.allSettled([
+    localized(mode, 'items'), localized(mode, 'hideout'),
+    getJSON(mode, 'barters'), localized(mode, 'traders')
+  ]);
+  if (version !== loadVersion) return;
+  const names = ['Itens', 'Hideout', 'Trocas', 'Comerciantes'];
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') DB.errors.push(names[index] + ': ' + result.reason.message);
+  });
+  const value = index => results[index].status === 'fulfilled' ? results[index].value : null;
+  const traderData = value(3);
+  const traders = new Map(Object.values(traderData?.data || {}).map(trader => [trader.id, {
+    ...trader, name: traderData.translate(trader.name, trader.normalizedName)
+  }]));
+  const itemData = value(0);
+  if (itemData) {
+    try {
+      DB.items = normalizeItems(itemData.data.items, itemData.translate, traders, itemData.data.itemCategories || {});
+      DB.map = new Map(DB.items.map(item => [item.id, item]));
+      DB.updated = new Date();
+    } catch (error) { DB.errors.push('Itens: ' + error.message); }
+  }
+  const ref = requirement => ({ ...requirement, item: DB.map.get(requirement.item) || {
+    id: requirement.item, name: 'Item ' + requirement.item, shortName: '', iconLink: ''
+  }});
+  const hideout = value(1);
+  if (hideout) DB.stations = Object.values(hideout.data).map(station => ({
+    ...station, name: hideout.translate(station.name, station.normalizedName),
+    levels: (station.levels || []).map(level => ({
+      ...level, itemRequirements: (level.itemRequirements || []).map(ref)
+    }))
+  }));
+  const barters = value(2);
+  if (barters) DB.barters = Object.values(barters).map(barter => ({
+    ...barter, trader: traders.get(barter.trader) || { name: 'Comerciante' },
+    level: barter.minTraderLevel,
+    requiredItems: (barter.requiredItems || []).map(ref),
+    rewardItems: barter.offeredItem ? [ref(barter.offeredItem)] : []
+  }));
+  $('#refresh').disabled = false;
+  $('#status').textContent = DB.errors.length
+    ? '⚠ ' + DB.errors.join(' | ') + (DB.items.length ? ' · dados disponíveis mantidos' : ' · verifique sua conexão e tente atualizar')
+    : 'Consultado às ' + DB.updated.toLocaleTimeString('pt-BR') + ' · ' + DB.items.length + ' itens · ' + (mode === 'pve' ? 'PVE' : 'PVP');
+  render();
+}
+
+// ---------- helpers de preço ----------
+const price = it => {
+  if (!it) return null;
+  if (it.id === '5449016a4bdc2d6f028b456f') return 1;
+  if (it.lastLowPrice > 0) return it.lastLowPrice;
+  if (it.avg24hPrice > 0) return it.avg24hPrice;
+  const offers = (it.buyFromTrader || []).map(o => o.priceRUB).filter(p => p > 0);
+  return offers.length ? Math.min(...offers) : (traderSell(it).best || null);
+};
+const multiplyPrice = (value, count) => value == null ? null : value * count;
+const sumPrices = values => values.some(value => value == null) ? null : values.reduce((sum, value) => sum + value, 0);
+const costOf = refs => sumPrices(refs.map(r => multiplyPrice(priceById(r.item.id), r.count)));
+const priceById = id => price(DB.map.get(id));
+function traderSell(it) {
+  let best = 0, who = '';
+  for (const s of (it.sellFor || [])) {
+    if (s.vendor && s.vendor.name === 'Flea Market') continue;
+    if (s.priceRUB > best) { best = s.priceRUB; who = s.vendor?.name || 'Comerciante'; }
+  }
+  return { best, who };
+}
+const markKey = (id, source) => source ? 'hideout:' + source.stationId + ':' + source.level + ':' + id : id;
+const isMarked = (id, source) => !!S.marked[markKey(id, source)];
+const hasMarkedItem = id => Object.entries(S.marked).some(([key, mark]) => (mark.itemId || key) === id);
+const hideoutSource = (station, level) => ({ stationId: station.id, stationName: station.name, level });
+function toggleMark(id, qty, source) {
+  const key = markKey(id, source);
+  if (S.marked[key]) delete S.marked[key];
+  else S.marked[key] = { itemId: id, qty: qty || 1, owned: 0, ...(source ? { source } : {}) };
+  save();
+}
+function addMark(id, qty, source) {
+  const key = markKey(id, source), m = S.marked[key];
+  if (m) m.qty = Math.max(m.qty, qty || 1); else S.marked[key] = { itemId: id, qty: qty || 1, owned: 0, ...(source ? { source } : {}) };
+  save();
+}
+
+// ---------- componentes ----------
+function chip(ref, count, source) {
+  const it = ref.item, hl = isMarked(it.id, source);
+  const full = DB.map.get(it.id);
+  const p = price(full);
+  return `<div class="chip ${hl ? 'hl' : ''}" data-act="mark" data-id="${esc(it.id)}" data-qty="${count || 1}" ${source ? `data-station-id="${esc(source.stationId)}" data-level="${esc(source.level)}"` : ''} title="Clique para ${hl ? 'desmarcar' : 'marcar'}">
+    <img loading="lazy" src="${esc(it.iconLink)}" alt=""><div>${hl ? '★ ' : ''}${esc(it.shortName || it.name)} ×${count}<small>${fmt(multiplyPrice(p, count))}</small></div></div>`;
+}
+
+// ---------- abas ----------
+function viewItems() {
+  const q = UI.q.trim().toLowerCase();
+  const matchingItems = DB.items.filter(i => (!q || (i.name + ' ' + i.shortName).toLowerCase().includes(q)) && (!UI.onlyMarked || hasMarkedItem(i.id)));
+  let list = matchingItems.filter(matchesCategory);
+  const slot = i => (price(i) == null ? null : price(i) / Math.max(1, (i.width || 1) * (i.height || 1)));
+  const sorters = { price: (a, b) => price(b) - price(a), priceAsc: (a, b) => price(a) - price(b), name: (a, b) => a.name.localeCompare(b.name, 'pt-BR'), slot: (a, b) => slot(b) - slot(a) };
+  list.sort(sorters[UI.sort]);
+  const total = list.length;
+  list = list.slice(0, UI.limit);
+  return `<div class="bar">
+    <input type="search" id="q" placeholder="Buscar item (nome ou sigla)…" value="${esc(UI.q)}">
+    <select id="sort">
+      <option value="price" ${UI.sort === 'price' ? 'selected' : ''}>Maior preço</option>
+      <option value="priceAsc" ${UI.sort === 'priceAsc' ? 'selected' : ''}>Menor preço</option>
+      <option value="slot" ${UI.sort === 'slot' ? 'selected' : ''}>Maior ₽/slot</option>
+      <option value="name" ${UI.sort === 'name' ? 'selected' : ''}>Nome</option>
+    </select>
+    <label class="ck"><input type="checkbox" id="onlyMarked" ${UI.onlyMarked ? 'checked' : ''}> só marcados</label>
+    <span class="mut">${total} resultado(s)${total > UI.limit ? ' · mostrando ' + UI.limit : ''}</span>
+  </div>
+  ${categoryFilters(matchingItems)}
+  <div class="row hd"><span></span><span></span><span>Item</span><span>Flea (última coleta)</span><span>Melhor trader</span><span>₽/slot</span></div>
+  <div id="rows">${list.map(i => {
+    const t = traderSell(i), m = isMarked(i.id);
+    return `<div class="row ${m ? 'hl' : ''}">
+      <button class="star ${m ? 'on' : ''}" data-act="mark" data-id="${esc(i.id)}" title="Marcar como necessário">${m ? '★' : '☆'}</button>
+      <img loading="lazy" src="${esc(i.iconLink)}" alt="">
+      <div class="name">${esc(i.name)}<small>${esc(i.shortName)}</small></div>
+      <div class="p">${fmt(i.lastLowPrice)}<small>média 24h: ${fmt(i.avg24hPrice)}</small></div>
+      <div class="p">${t.best ? fmt(t.best) : '—'}<small>${esc(t.who)}</small></div>
+      <div class="p">${fmt(slot(i))}</div></div>`;
+  }).join('') || '<div class="empty">Nenhum item encontrado.</div>'}</div>${total > UI.limit ? '<button data-act="moreItems">Mostrar mais itens</button>' : ''}<p class="mut">Preços da última coleta do tarkov.dev; podem diferir do jogo. — indica preço indisponível. Estimativas usam flea, compra no comerciante ou venda ao comerciante, conforme disponibilidade.</p>`;
+}
+
+const remaining = mark => Math.max(0, mark.qty - mark.owned);
+function markedRows() {
+  return Object.entries(S.marked).map(([id, m]) => {
+    const it = DB.map.get(m.itemId || id), p = price(it), missing = remaining(m);
+    return { id, it, m, p, missing, sub: missing === 0 ? 0 : multiplyPrice(p, missing), full: multiplyPrice(p, m.qty) };
+  }).sort((a, b) => ((a.missing === 0) - (b.missing === 0)) || ((a.it?.name || '').localeCompare(b.it?.name || '', 'pt-BR')));
+}
+function updateMarkedNumbers() {
+  const rows = markedRows(), byId = new Map(rows.map(row => [row.id, row]));
+  if (!$('#marked-cost-remaining')) return;
+  $('#marked-cost-total').textContent = fmt(sumPrices(rows.map(row => row.full)));
+  $('#marked-cost-remaining').textContent = fmt(sumPrices(rows.map(row => row.sub)));
+  document.querySelectorAll('[data-marked-row]').forEach(element => {
+    const row = byId.get(element.dataset.markedRow);
+    if (!row) return;
+    element.classList.toggle('complete', row.missing === 0);
+    const missing = element.querySelector('[data-missing]');
+    missing.textContent = row.missing === 0 ? 'Completo · não falta nenhum' : 'Faltam: ' + row.missing;
+    missing.className = 'marked-remaining ' + (row.missing === 0 ? 'pos' : '');
+    element.querySelector('[data-remaining-cost]').textContent = fmt(row.sub);
+  });
+}
+function setMarkedQuantity(target) {
+  if (target.dataset.act !== 'owned') return;
+  const mark = S.marked[target.dataset.id];
+  if (!mark) return;
+  const value = Number(target.value);
+  mark.owned = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  save();
+  updateMarkedNumbers();
+}
+function viewMarked() {
+  const rows = markedRows();
+  if (!rows.length) return '<div class="empty">Nenhum item marcado ainda.<br>Use a ★ na aba Itens, ou clique nos itens das abas Hideout e Trocas.</div>';
+  const totalAll = sumPrices(rows.map(row => row.full)), totalPend = sumPrices(rows.map(row => row.sub));
+  return `<div class="tot"><span>Itens marcados: <b>${rows.length}</b></span><span>Custo total necessário: <b id="marked-cost-total">${fmt(totalAll)}</b></span><span>Custo do que falta: <b id="marked-cost-remaining">${fmt(totalPend)}</b></span>
+    <span class="sp"></span><button data-act="clearHave">Remover itens completos</button> <button data-act="clearAll">Limpar tudo</button></div>
+  <div class="row hd marked-head"><span></span><span></span><span>Item</span><span>Preço un. estimado</span><span>Tenho / Faltam</span><span>Custo restante</span></div>
+  ${rows.map(({ id, it, m, p, missing, sub }) => `<div class="row hl marked-row ${missing === 0 ? 'complete' : ''}" data-marked-row="${esc(id)}">
+    <button class="star on" data-act="mark" data-id="${esc(id)}" title="Desmarcar">★</button>
+    ${it ? `<img loading="lazy" src="${esc(it.iconLink)}" alt="">` : '<span></span>'}
+    <div class="name">${esc(it ? it.name : (m.itemId || id))}<small>${esc(it ? it.shortName : '')}</small><div class="mut">${m.source ? 'Hideout · ' + esc(DB.stations.find(station => station.id === m.source.stationId)?.name || m.source.stationName || m.source.stationId) + ' · Nível ' + esc(m.source.level) : 'Marcação geral'}</div></div>
+    <div class="p">${fmt(p)}</div>
+    <div class="p marked-quantity"><label>Tenho <input class="q" type="number" min="0" step="1" value="${esc(m.owned)}" data-act="owned" data-id="${esc(id)}" aria-label="Quantidade que já tenho de ${esc(it ? it.name : id)}"></label><span data-missing class="marked-remaining ${missing === 0 ? 'pos' : ''}" aria-live="polite">${missing === 0 ? 'Completo · não falta nenhum' : 'Faltam: ' + missing}</span></div>
+    <div class="p"><small>Custo restante</small><span data-remaining-cost>${fmt(sub)}</span></div></div>`).join('')}`;
+}
+
+function viewHideout() {
+  const q = UI.hq.trim().toLowerCase();
+  let out = `<div class="bar"><input type="search" id="hq" placeholder="Buscar estação ou item de requisito…" value="${esc(UI.hq)}">
+    <span class="mut">Clique em um item para marcá-lo · marque o nível como concluído para esmaecer</span></div>`;
+  const stations = DB.stations.filter(s => !q || s.name.toLowerCase().includes(q) ||
+    s.levels.some(l => l.itemRequirements.some(r => (r.item.name + r.item.shortName).toLowerCase().includes(q))));
+  if (!stations.length) return out + '<div class="empty">Nada para mostrar.</div>';
+  out += stations.map(s => {
+    const levels = s.levels.filter(l => l.itemRequirements.length || !q);
+    const pend = s.levels.filter(l => !S.done[s.id + ':' + l.level]).length;
+    const open = UI.hideoutOpen.has(s.id) ? UI.hideoutOpen.get(s.id) : !!q;
+    return `<details data-station="${esc(s.id)}" ${open ? 'open' : ''}><summary>${esc(s.name)} <span class="mut">· ${pend} nível(is) pendente(s)</span></summary>
+    ${levels.map(l => {
+      const done = !!S.done[s.id + ':' + l.level];
+      const cost = costOf(l.itemRequirements);
+      const mins = Math.round((l.constructionTime || 0) / 60);
+      return `<div class="lvl ${done ? 'done' : ''}"><div class="lvh">
+        <b>Nível ${l.level}</b>
+        <label class="ck"><input type="checkbox" data-act="done" data-key="${esc(s.id + ':' + l.level)}" ${done ? 'checked' : ''}> concluído</label>
+        <span class="mut">construção: ${mins >= 60 ? Math.round(mins / 6) / 10 + ' h' : mins + ' min'}</span>
+        <span class="mut">custo dos itens: ${fmt(cost)}</span>
+        <button data-act="markLevel" data-key="${esc(s.id + ':' + l.level)}">★ marcar itens do nível</button></div>
+        <div class="chips">${l.itemRequirements.map(r => chip(r, r.count, hideoutSource(s, l.level))).join('') || '<span class="mut">sem itens necessários</span>'}</div></div>`;
+    }).join('')}</details>`;
+  }).join('');
+  return out;
+}
+
+function viewBarters() {
+  const q = UI.bq.trim().toLowerCase();
+  const traders = [...new Set(DB.barters.map(b => b.trader.name))].sort();
+  let list = DB.barters.map(b => {
+    const cost = costOf(b.requiredItems);
+    const gain = costOf(b.rewardItems);
+    const hit = [...b.requiredItems, ...b.rewardItems].some(r => isMarked(r.item.id));
+    return { b, cost, gain, profit: gain == null || cost == null ? null : gain - cost, hit };
+  }).filter(x => (!UI.btrader || x.b.trader.name === UI.btrader) &&
+    (!UI.bOnlyMarked || x.hit) &&
+    (!q || [...x.b.requiredItems, ...x.b.rewardItems].some(r => (r.item.name + r.item.shortName).toLowerCase().includes(q))));
+  const sorters = { profit: (a, b) => b.profit - a.profit, trader: (a, b) => a.b.trader.name.localeCompare(b.b.trader.name) || a.b.level - b.b.level, cost: (a, b) => a.cost - b.cost };
+  list.sort(sorters[UI.bsort]);
+  const total = list.length; list = list.slice(0, 120);
+  return `<div class="bar">
+    <input type="search" id="bq" placeholder="Buscar item em trocas…" value="${esc(UI.bq)}">
+    <select id="btrader"><option value="">Todos os traders</option>${traders.map(t => `<option ${UI.btrader === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+    <select id="bsort">
+      <option value="profit" ${UI.bsort === 'profit' ? 'selected' : ''}>Maior lucro estimado</option>
+      <option value="trader" ${UI.bsort === 'trader' ? 'selected' : ''}>Trader / nível</option>
+      <option value="cost" ${UI.bsort === 'cost' ? 'selected' : ''}>Menor custo</option>
+    </select>
+    <label class="ck"><input type="checkbox" id="bOnlyMarked" ${UI.bOnlyMarked ? 'checked' : ''}> só com itens marcados</label>
+    <span class="mut">${total} troca(s)${total > 120 ? ' · mostrando 120' : ''}</span></div>
+  ${list.map(({ b, cost, gain, profit, hit }) => `<div class="card ${hit ? 'hl' : ''}">
+    <h3>${esc(b.trader.name)} <span class="mut">· nível ${b.level}</span></h3>
+    <div class="brt"><div class="chips">${b.requiredItems.map(r => chip(r, r.count)).join('')}</div><span class="arrow">➜</span>
+    <div class="chips">${b.rewardItems.map(r => chip(r, r.count)).join('')}</div></div>
+    <div class="mut">Custo estimado: ${fmt(cost)} · Valor recebido: ${fmt(gain)} · Lucro estimado: <b class="${profit >= 0 ? 'pos' : 'neg'}">${fmt(profit)}</b></div></div>`).join('')
+    || '<div class="empty">Nenhuma troca encontrada.</div>'}`;
+}
+
+// ---------- render ----------
+function render() {
+  // A lista é recriada ao marcar itens; conserva cada estação aberta ou fechada.
+  let changed = false;
+  document.querySelectorAll('#view details[data-station]').forEach(details => {
+    UI.hideoutOpen.set(details.dataset.station, details.open);
+    if (S.hideoutOpen[details.dataset.station] !== details.open) {
+      S.hideoutOpen[details.dataset.station] = details.open;
+      changed = true;
+    }
+  });
+  if (changed) save();
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
+  $('#nmarked').textContent = Object.keys(S.marked).length;
+  const v = { items: viewItems, marked: viewMarked, hideout: viewHideout, barters: viewBarters }[S.tab];
+  if (!DB.items.length && !DB.stations.length && !DB.barters.length) {
+    $('#view').innerHTML = `<div class="empty">${DB.errors.length ? 'Não foi possível carregar os dados.<br>' + esc(DB.errors.join(' | ')) : 'Carregando dados do tarkov.dev…'}</div>`;
+    return;
+  }
+  // preserva foco/cursor em campos de busca
+  const act = document.activeElement, id = act && act.id, pos = act && act.selectionStart;
+  $('#view').innerHTML = v();
+  if (id && $('#' + id) && /^(q|bq|hq)$/.test(id)) { const e = $('#' + id); e.focus(); try { e.setSelectionRange(pos, pos); } catch (_) {} }
+}
+
+// ---------- eventos ----------
+document.addEventListener('toggle', e => {
+  const details = e.target;
+  if (!details.isConnected || !details.matches('details[data-station]')) return;
+  const id = details.dataset.station;
+  if (S.hideoutOpen[id] === details.open) return;
+  UI.hideoutOpen.set(id, details.open);
+  S.hideoutOpen[id] = details.open;
+  save();
+}, true);
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]'); if (!t) return;
+  const a = t.dataset.act;
+  if (a === 'category') { toggleCategory(t.dataset.category); }
+  else if (a === 'moreItems') { UI.limit += 150; render(); }
+  else if (a === 'mark') {
+    let source;
+    if (t.dataset.stationId) {
+      const station = DB.stations.find(station => station.id === t.dataset.stationId);
+      const level = station?.levels.find(level => String(level.level) === t.dataset.level);
+      if (!station || !level) return;
+      source = hideoutSource(station, level.level);
+    }
+    toggleMark(t.dataset.id, +t.dataset.qty || 1, source); render();
+  }
+  else if (a === 'markLevel') {
+    const [sid, lv] = t.dataset.key.split(':');
+    const st = DB.stations.find(s => s.id === sid), l = st && st.levels.find(x => String(x.level) === lv);
+    if (l) l.itemRequirements.forEach(r => addMark(r.item.id, r.count, hideoutSource(st, l.level)));
+    render();
+  }
+  else if (a === 'clearHave') { for (const k of Object.keys(S.marked)) if (remaining(S.marked[k]) === 0) delete S.marked[k]; save(); render(); }
+  else if (a === 'clearAll') { if (confirm('Remover todos os itens marcados?')) { S.marked = {}; save(); render(); } }
+});
+document.addEventListener('change', e => {
+  const t = e.target; const a = t.dataset && t.dataset.act;
+  if (a === 'owned') {
+    setMarkedQuantity(t);
+    const mark = S.marked[t.dataset.id];
+    if (mark) t.value = mark.owned;
+  }
+  else if (a === 'done') { if (t.checked) S.done[t.dataset.key] = true; else delete S.done[t.dataset.key]; save(); render(); }
+  else if (t.id === 'sort') { UI.sort = t.value; render(); }
+  else if (t.id === 'onlyMarked') { UI.onlyMarked = t.checked; render(); }
+  else if (t.id === 'btrader') { UI.btrader = t.value; render(); }
+  else if (t.id === 'bsort') { UI.bsort = t.value; render(); }
+  else if (t.id === 'bOnlyMarked') { UI.bOnlyMarked = t.checked; render(); }
+});
+let deb;
+document.addEventListener('input', e => {
+  if (e.target.dataset?.act === 'owned' && S.marked[e.target.dataset.id]) {
+    setMarkedQuantity(e.target);
+    return;
+  }
+  const id = e.target.id;
+  if (!['q', 'bq', 'hq'].includes(id)) return;
+  clearTimeout(deb);
+  deb = setTimeout(() => { UI[id] = e.target.value; UI.limit = 150; render(); }, 200);
+});
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { S.tab = b.dataset.tab; save(); render(); } });
+$('#refresh').addEventListener('click', loadAll);
+$('#mode').value = S.mode;
+$('#mode').addEventListener('change', e => { S.mode = e.target.value; save(); loadAll(); });
+
+save();
+render();
+loadAll();
+setInterval(loadAll, REFRESH_MS);
+</script>
+</body>
+</html>
