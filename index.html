@@ -45,6 +45,7 @@ label.ck{display:flex;gap:6px;align-items:center;color:var(--mut)}
 .p small{display:block;color:var(--mut)}
 /* Mantém nvl e número juntos ao lado do preço. */
 .level-tag{white-space:nowrap;color:var(--mut);font-size:12px}
+.price-change{display:inline-block;white-space:nowrap;font-size:12px;font-weight:600;margin-left:5px}
 .star{font-size:20px;line-height:1;background:transparent;border:none;color:var(--mut);padding:2px}
 .star.on{color:var(--gold)}
 .mut{color:var(--mut)}.pos{color:var(--grn)}.neg{color:var(--red)}
@@ -119,6 +120,17 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 // fmt prepara valores para exibição: arredonda, usa separadores pt-BR e acrescenta ₽.
 // null significa preço desconhecido e aparece como um traço; não é tratado como preço zero.
 const fmt = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('pt-BR') + ' ₽';
+// Exibe o percentual pronto da API, sem recalcular pela média de 24 horas.
+// Alta fica vermelha (compra mais cara), queda verde e estabilidade neutra.
+function fleaChange(item) {
+  const value = item.changeLast48hPercent;
+  if (!Number.isFinite(value)) return '';
+  const arrow = value > 0 ? '↑' : value < 0 ? '↓' : '→';
+  const color = value > 0 ? 'neg' : value < 0 ? 'pos' : 'mut';
+  const percent = Math.abs(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  const direction = value > 0 ? 'Alta' : value < 0 ? 'Queda' : 'Estabilidade';
+  return `<span class="price-change ${color}" title="Variação em relação a ontem, informada pelo tarkov.dev" aria-label="${direction} de ${percent}% em relação a ontem">${arrow} ${percent}%</span>`;
+}
 
 // ---------- estado persistido ----------
 // ESTADO SALVO: DEF contém valores iniciais; S contém as escolhas e o progresso da pessoa.
@@ -259,6 +271,7 @@ function normalizeItems(source, translate, traders, taxonomy = {}) {
     updated: item.lastScan || item.updated,
     lastLowPrice: item.lastLowPrice > 0 ? item.lastLowPrice : null,
     avg24hPrice: item.avg24hPrice > 0 ? item.avg24hPrice : null,
+    changeLast48hPercent: Number.isFinite(item.changeLast48hPercent) ? item.changeLast48hPercent : null,
     // Requisito informado pela API; null mantém explícita a ausência de informação.
     minLevelForFlea: item.minLevelForFlea ?? null,
     buyFromTrader: (item.buyFromTrader || []).map(offer => ({
@@ -436,7 +449,7 @@ function viewItems() {
   ${esc(i.name)}
   <small>${esc(i.shortName)}</small>
 </div>
-      <div class="p">${fmt(i.lastLowPrice)} <span class="level-tag" title="Nível do jogador para acesso ao flea">· nvl ${esc(i.minLevelForFlea ?? '?')}</span><small>média 24h: ${fmt(i.avg24hPrice)}</small></div>
+      <div class="p">${fmt(i.lastLowPrice)} ${fleaChange(i)} <span class="level-tag" title="Nível do jogador para acesso ao flea">· nvl ${esc(i.minLevelForFlea ?? '?')}</span><small>média 24h: ${fmt(i.avg24hPrice)}</small></div>
       <div class="p">${purchase ? `<span class="pos">${fmt(purchase.priceRUB)}</span> <span class="level-tag" title="Nível de lealdade do comerciante">· nvl ${esc(purchase.minTraderLevel ?? '?')}</span><small>${esc(purchase.traderName)}</small>${purchase.taskUnlock ? '<small>Exige desbloqueio por missão</small>' : ''}` : '<span class="mut">Sem oferta de compra</span>'}</div>
       <div class="p">${fmt(slot(i))}</div></div>`;
   }).join('') || '<div class="empty">Nenhum item encontrado.</div>'}</div>${total > UI.limit ? '<button data-act="moreItems">Mostrar mais itens</button>' : ''}<p class="mut">Preços da última coleta do tarkov.dev; podem diferir do jogo. — indica preço indisponível. Estimativas usam flea, compra no comerciante ou venda ao comerciante, conforme disponibilidade.</p>`;
@@ -677,4 +690,5 @@ setInterval(loadAll, REFRESH_MS);
 </script>
 </body>
 </html>
+
 
