@@ -439,13 +439,29 @@ function viewItems() {
 // QUANTIDADES: faltam = máximo entre zero e (necessidade - quantidade que tenho).
 // Exemplo: qty 10 e owned 4 resultam em 6. A necessidade vem da marcação e não é editável em Marcados.
 const remaining = mark => Math.max(0, mark.qty - mark.owned);
-// Prepara as linhas de Marcados. itemId identifica o produto; a chave id pode identificar uma construção específica.
-// sub calcula o custo só do que falta; full calcula o custo da necessidade inteira. Um item completo tem custo restante zero.
+// Agrupa as marcações por produto apenas para a lista de compras.
+// As chaves de estação e nível continuam separadas em S.marked, preservando o Hideout.
 function markedRows() {
-  return Object.entries(S.marked).map(([id, m]) => {
-    const it = DB.map.get(m.itemId || id), p = price(it), missing = remaining(m);
-    return { id, it, m, p, missing, sub: missing === 0 ? 0 : multiplyPrice(p, missing), full: multiplyPrice(p, m.qty) };
+  const groups = new Map();
+  for (const [key, mark] of Object.entries(S.marked)) {
+    const id = mark.itemId || key;
+    if (!groups.has(id)) groups.set(id, { id, keys: [], sources: [], m: { qty: 0, owned: 0 } });
+    const group = groups.get(id);
+    group.keys.push(key);
+    group.sources.push(mark.source || null);
+    group.m.qty += mark.qty;
+    group.m.owned += mark.owned;
+  }
+  return [...groups.values()].map(group => {
+    const it = DB.map.get(group.id), p = price(it), missing = remaining(group.m);
+    return { ...group, it, p, missing, sub: missing === 0 ? 0 : multiplyPrice(p, missing), full: multiplyPrice(p, group.m.qty) };
   }).sort((a, b) => ((a.missing === 0) - (b.missing === 0)) || ((a.it?.name || '').localeCompare(b.it?.name || '', 'pt-BR')));
+}
+// Desmarcar uma linha agrupada retira todas as suas origens, sem afetar outros produtos.
+function unmarkItem(id) {
+  for (const [key, mark] of Object.entries(S.marked)) {
+    if ((mark.itemId || key) === id) delete S.marked[key];
+  }
 }
 // ATUALIZAÇÃO PARCIAL DO DOM: altera apenas textos, totais e a classe complete enquanto a pessoa digita.
 // Isso evita recriar o campo Tenho e perder o foco durante a digitação. textContent insere texto, sem interpretar HTML.
@@ -465,17 +481,22 @@ function updateMarkedNumbers() {
   });
 }
 // Lê apenas o campo Tenho, converte o texto em número e elimina valores negativos, decimais ou não finitos.
-// Depois salva e recalcula os valores visíveis, mantendo cada marcação independente.
+// Distribui o total Tenho entre as origens para não contar o mesmo estoque duas vezes.
 function setMarkedQuantity(target) {
   if (target.dataset.act !== 'owned') return;
-  const mark = S.marked[target.dataset.id];
-  if (!mark) return;
+  const group = markedRows().find(row => row.id === target.dataset.id);
+  if (!group) return;
   const value = Number(target.value);
-  mark.owned = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  let available = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  group.keys.forEach((key, index) => {
+    const mark = S.marked[key];
+    mark.owned = index === group.keys.length - 1 ? available : Math.min(mark.qty, available);
+    available -= mark.owned;
+  });
   save();
   updateMarkedNumbers();
 }
-// ABA MARCADOS: combina produto, origem, estoque e custo. Duas construções podem ter linhas para o mesmo produto.
+// ABA MARCADOS: cada produto ocupa uma linha com as necessidades de todas as origens somadas.
 // O campo Tenho edita owned; Faltam é um resultado calculado. aria-live anuncia alterações para leitores de tela.
 function viewMarked() {
   const rows = markedRows();
@@ -484,10 +505,10 @@ function viewMarked() {
   return `<div class="tot"><span>Itens marcados: <b>${rows.length}</b></span><span>Custo total necessário: <b id="marked-cost-total">${fmt(totalAll)}</b></span><span>Custo do que falta: <b id="marked-cost-remaining">${fmt(totalPend)}</b></span>
     <span class="sp"></span><button data-act="clearHave">Remover itens completos</button> <button data-act="clearAll">Limpar tudo</button></div>
   <div class="row hd marked-head"><span></span><span></span><span>Item</span><span>Preço un. estimado</span><span>Tenho / Faltam</span><span>Custo restante</span></div>
-  ${rows.map(({ id, it, m, p, missing, sub }) => `<div class="row hl marked-row ${missing === 0 ? 'complete' : ''}" data-marked-row="${esc(id)}">
-    <button class="star on" data-act="mark" data-id="${esc(id)}" title="Desmarcar">★</button>
+  ${rows.map(({ id, it, m, sources, p, missing, sub }) => `<div class="row hl marked-row ${missing === 0 ? 'complete' : ''}" data-marked-row="${esc(id)}">
+    <button class="star on" data-act="unmarkItem" data-id="${esc(id)}" title="Desmarcar este item em todas as origens">★</button>
     ${it ? `<img loading="lazy" src="${esc(it.iconLink)}" alt="">` : '<span></span>'}
-    <div class="name">${esc(it ? it.name : (m.itemId || id))}<small>${esc(it ? it.shortName : '')}</small><div class="mut">${m.source ? 'Hideout · ' + esc(DB.stations.find(station => station.id === m.source.stationId)?.name || m.source.stationName || m.source.stationId) + ' · Nível ' + esc(m.source.level) : 'Marcação geral'}</div></div>
+    <div class="name">${esc(it ? it.name : id)}<small>${esc(it ? it.shortName : '')}</small><div class="mut">${sources.map(source => source ? 'Hideout · ' + esc(DB.stations.find(station => station.id === source.stationId)?.name || source.stationName || source.stationId) + ' · Nível ' + esc(source.level) : 'Marcação geral').join(' / ')}</div><div class="mut">Total necessário: ${esc(m.qty)}</div></div>
     <div class="p">${fmt(p)}</div>
     <div class="p marked-quantity"><label>Tenho <input class="q" type="number" min="0" step="1" value="${esc(m.owned)}" data-act="owned" data-id="${esc(id)}" aria-label="Quantidade que já tenho de ${esc(it ? it.name : id)}"></label><span data-missing class="marked-remaining ${missing === 0 ? 'pos' : ''}" aria-live="polite">${missing === 0 ? 'Completo · não falta nenhum' : 'Faltam: ' + missing}</span></div>
     <div class="p"><small>Custo restante</small><span data-remaining-cost>${fmt(sub)}</span></div></div>`).join('')}`;
@@ -573,7 +594,7 @@ function render() {
   });
   if (changed) save();
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
-  $('#nmarked').textContent = Object.keys(S.marked).length;
+  $('#nmarked').textContent = markedRows().length;
   const v = { items: viewItems, marked: viewMarked, hideout: viewHideout, barters: viewBarters }[S.tab];
   if (!DB.items.length && !DB.stations.length && !DB.barters.length) {
     $('#view').innerHTML = `<div class="empty">${DB.errors.length ? 'Não foi possível carregar os dados.<br>' + esc(DB.errors.join(' | ')) : 'Carregando dados do tarkov.dev…'}</div>`;
@@ -606,6 +627,7 @@ document.addEventListener('click', e => {
   const a = t.dataset.act;
   if (a === 'category') { toggleCategory(t.dataset.category); }
   else if (a === 'moreItems') { UI.limit += 150; render(); }
+  else if (a === 'unmarkItem') { unmarkItem(t.dataset.id); save(); render(); }
   else if (a === 'mark') {
     let source;
     if (t.dataset.stationId) {
@@ -622,7 +644,7 @@ document.addEventListener('click', e => {
     if (l) l.itemRequirements.forEach(r => addMark(r.item.id, r.count, hideoutSource(st, l.level)));
     render();
   }
-  else if (a === 'clearHave') { for (const k of Object.keys(S.marked)) if (remaining(S.marked[k]) === 0) delete S.marked[k]; save(); render(); }
+  else if (a === 'clearHave') { markedRows().filter(row => row.missing === 0).forEach(row => unmarkItem(row.id)); save(); render(); }
   else if (a === 'clearAll') { if (confirm('Remover todos os itens marcados?')) { S.marked = {}; save(); render(); } }
 });
 // change trata escolhas concluídas: confirmação de Tenho, níveis concluídos, ordenação e filtros.
@@ -631,8 +653,8 @@ document.addEventListener('change', e => {
   const t = e.target; const a = t.dataset && t.dataset.act;
   if (a === 'owned') {
     setMarkedQuantity(t);
-    const mark = S.marked[t.dataset.id];
-    if (mark) t.value = mark.owned;
+    const row = markedRows().find(row => row.id === t.dataset.id);
+    if (row) t.value = row.m.owned;
   }
   else if (a === 'done') { if (t.checked) S.done[t.dataset.key] = true; else delete S.done[t.dataset.key]; save(); render(); }
   else if (t.id === 'sort') { UI.sort = t.value; render(); }
@@ -645,7 +667,7 @@ document.addEventListener('change', e => {
 // Para as buscas, o debounce cancela a espera anterior e aguarda 200 ms sem digitação antes de filtrar, reduzindo redesenhos.
 let deb;
 document.addEventListener('input', e => {
-  if (e.target.dataset?.act === 'owned' && S.marked[e.target.dataset.id]) {
+  if (e.target.dataset?.act === 'owned' && hasMarkedItem(e.target.dataset.id)) {
     setMarkedQuantity(e.target);
     return;
   }
@@ -670,3 +692,4 @@ setInterval(loadAll, REFRESH_MS);
 </script>
 </body>
 </html>
+
