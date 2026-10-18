@@ -34,6 +34,10 @@ main{padding:14px 16px;max-width:1200px;margin:0 auto}
 .category-filter:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 .category-count{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
 .category-filter[aria-pressed=true] .category-count{color:var(--gold)}
+.category-filter.mover-up{color:var(--grn)}
+.category-filter.mover-down{color:var(--red)}
+.category-filter.mover-up[aria-pressed=true]{background:#193222;border-color:var(--grn)}
+.category-filter.mover-down[aria-pressed=true]{background:#38201f;border-color:var(--red)}
 label.ck{display:flex;gap:6px;align-items:center;color:var(--mut)}
 /* CSS Grid divide cada linha em colunas: estrela, imagem, nome e preços. 1fr usa o espaço que sobrar; px define uma largura fixa. */
 .row{display:grid;grid-template-columns:34px 48px 1fr 170px 130px 90px;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:6px}
@@ -121,12 +125,12 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 // null significa preço desconhecido e aparece como um traço; não é tratado como preço zero.
 const fmt = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('pt-BR') + ' ₽';
 // Exibe o percentual pronto da API, sem recalcular pela média de 24 horas.
-// Alta fica vermelha (compra mais cara), queda verde e estabilidade neutra.
+// Para acompanhar vendas: alta em verde, queda em vermelho e estabilidade neutra.
 function fleaChange(item) {
   const value = item.changeLast48hPercent;
   if (!Number.isFinite(value)) return '';
   const arrow = value > 0 ? '↑' : value < 0 ? '↓' : '→';
-  const color = value > 0 ? 'neg' : value < 0 ? 'pos' : 'mut';
+  const color = value > 0 ? 'pos' : value < 0 ? 'neg' : 'mut';
   const percent = Math.abs(value).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
   const direction = value > 0 ? 'Alta' : value < 0 ? 'Queda' : 'Estabilidade';
   return `<span class="price-change ${color}" title="Variação em relação a ontem, informada pelo tarkov.dev" aria-label="${direction} de ${percent}% em relação a ontem">${arrow} ${percent}%</span>`;
@@ -136,10 +140,11 @@ function fleaChange(item) {
 // ESTADO SALVO: DEF contém valores iniciais; S contém as escolhas e o progresso da pessoa.
 // JSON.parse converte o texto do localStorage em objeto. Object.assign combina os valores salvos com os padrões.
 // try/catch permite iniciar mesmo se o navegador bloquear a leitura ou se o texto salvo estiver inválido.
-const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, mode: 'pve', tab: 'items' };
+const DEF = { marked: {}, done: {}, categories: [], marketMover: '', hideoutOpen: {}, mode: 'pve', tab: 'items' };
 let S = (() => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem('tkv-app') || '{}')); } catch (e) { return { ...DEF }; } })();
 if (!['regular', 'pve'].includes(S.mode)) S.mode = 'pve';
 if (!['items', 'marked', 'hideout', 'barters'].includes(S.tab)) S.tab = 'items';
+if (!['', 'up', 'down'].includes(S.marketMover)) S.marketMover = '';
 if (!S.marked || typeof S.marked !== 'object') S.marked = {};
 // Converte o antigo “já tenho tudo” sem perder os itens salvos.
 for (const [id, mark] of Object.entries(S.marked)) {
@@ -207,7 +212,7 @@ function itemGroups(item, taxonomy) {
   return groups.length ? groups : ['other'];
 }
 function toggleCategory(id) {
-  if (id === 'all') S.categories = [];
+  if (id === 'all') { S.categories = []; S.marketMover = ''; }
   else if (CATEGORIES.some(category => category.id === id)) {
     S.categories = S.categories.includes(id) ? S.categories.filter(value => value !== id) : [...S.categories, id];
   } else return;
@@ -217,15 +222,31 @@ function toggleCategory(id) {
 // Com várias categorias selecionadas, some() aceita o item se ele pertencer a pelo menos uma delas (OU).
 // A busca por texto e a opção de marcados são combinadas com esse resultado em viewItems() (E).
 const matchesCategory = item => !S.categories.length || S.categories.some(id => item.groups.includes(id));
+// O ranking usa o percentual original da API: somente altas ou somente quedas.
+// Primeiro aplica os filtros da lista; depois limita aos 20 maiores movimentos.
+function topMarketMovers(items, direction) {
+  return items.filter(item => Number.isFinite(item.changeLast48hPercent) &&
+    (direction === 'up' ? item.changeLast48hPercent > 0 : item.changeLast48hPercent < 0))
+    .sort((a, b) => (direction === 'up' ? -1 : 1) * (a.changeLast48hPercent - b.changeLast48hPercent) || a.id.localeCompare(b.id))
+    .slice(0, 20);
+}
+function toggleMarketMover(direction) {
+  if (!['up', 'down'].includes(direction)) return;
+  S.marketMover = S.marketMover === direction ? '' : direction;
+  UI.limit = 150;
+  save(); render();
+}
 // COMPONENTE DE FILTROS: conta os resultados por categoria e monta os botões usando template literals.
 // Templates usam crases e expressões com dólar e chaves. aria-pressed informa se cada botão está selecionado.
 function categoryFilters(items) {
   const counts = new Map(CATEGORIES.map(category => [category.id, 0]));
   items.forEach(item => item.groups.forEach(id => counts.set(id, (counts.get(id) || 0) + 1)));
   const button = (id, label, count, selected) => `<button type="button" class="category-filter" data-act="category" data-category="${id}" aria-pressed="${selected}">${label}<span class="category-count">${count}</span></button>`;
+  const rankingItems = items.filter(matchesCategory);
+  const moverButton = direction => `<button type="button" class="category-filter mover-${direction}" data-act="marketMover" data-direction="${direction}" aria-pressed="${S.marketMover === direction}" title="${direction === 'up' ? '20 itens que mais valorizaram (%)' : '20 itens que mais desvalorizaram (%)'}" aria-label="${direction === 'up' ? '20 maiores altas percentuais' : '20 maiores quedas percentuais'}">% ${direction === 'up' ? '↑' : '↓'}<span class="category-count">${topMarketMovers(rankingItems, direction).length}</span></button>`;
   return `<section class="category-panel" aria-label="Filtros por categoria">
-    <div class="category-heading"><b>Categorias</b><span class="mut">Selecione uma ou mais · os filtros combinam com a busca e os marcados</span></div>
-    <div class="category-filters">${button('all', 'Todos', items.length, !S.categories.length)}${CATEGORIES.map(category => button(category.id, category.icon + ' ' + esc(category.label), counts.get(category.id), S.categories.includes(category.id))).join('')}</div>
+    <div class="category-heading"><b>Categorias</b><span class="mut">% ↑: 20 maiores altas · % ↓: 20 maiores quedas · combinam com a busca e os filtros</span></div>
+    <div class="category-filters">${button('all', 'Todos', items.length, !S.categories.length && !S.marketMover)}${moverButton('up')}${moverButton('down')}${CATEGORIES.map(category => button(category.id, category.icon + ' ' + esc(category.label), counts.get(category.id), S.categories.includes(category.id))).join('')}</div>
   </section>`;
 }
 
@@ -424,17 +445,18 @@ function viewItems() {
   let list = matchingItems.filter(matchesCategory);
   const slot = i => (price(i) == null ? null : price(i) / Math.max(1, (i.width || 1) * (i.height || 1)));
   const sorters = { price: (a, b) => price(b) - price(a), priceAsc: (a, b) => price(a) - price(b), name: (a, b) => a.name.localeCompare(b.name, 'pt-BR'), slot: (a, b) => slot(b) - slot(a) };
-  list.sort(sorters[UI.sort]);
+  if (S.marketMover) list = topMarketMovers(list, S.marketMover);
+  else list.sort(sorters[UI.sort]);
   const total = list.length;
   list = list.slice(0, UI.limit);
   return `<div class="bar">
     <input type="search" id="q" placeholder="Buscar item (nome ou sigla)…" value="${esc(UI.q)}">
-    <select id="sort">
+    ${S.marketMover ? `<select id="sort" disabled title="O ranking é ordenado pela variação percentual"><option>${S.marketMover === 'up' ? 'Maiores altas (%)' : 'Maiores quedas (%)'}</option></select>` : `<select id="sort">
       <option value="price" ${UI.sort === 'price' ? 'selected' : ''}>Maior preço</option>
       <option value="priceAsc" ${UI.sort === 'priceAsc' ? 'selected' : ''}>Menor preço</option>
       <option value="slot" ${UI.sort === 'slot' ? 'selected' : ''}>Maior ₽/slot</option>
       <option value="name" ${UI.sort === 'name' ? 'selected' : ''}>Nome</option>
-    </select>
+    </select>`}
     <label class="ck"><input type="checkbox" id="onlyMarked" ${UI.onlyMarked ? 'checked' : ''}> só marcados</label>
     <span class="mut">${total} resultado(s)${total > UI.limit ? ' · mostrando ' + UI.limit : ''}</span>
   </div>
@@ -632,6 +654,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act;
   if (a === 'category') { toggleCategory(t.dataset.category); }
+  else if (a === 'marketMover') { toggleMarketMover(t.dataset.direction); }
   else if (a === 'moreItems') { UI.limit += 150; render(); }
   else if (a === 'collectOne') { collectOne(t.dataset.id); }
   else if (a === 'unmarkItem') { unmarkItem(t.dataset.id); save(); render(); }
@@ -690,5 +713,6 @@ setInterval(loadAll, REFRESH_MS);
 </script>
 </body>
 </html>
+
 
 
