@@ -56,7 +56,7 @@ No editor, use a busca para localizar os nomes abaixo, nesta ordem:
 | `loadAll` | Como coordenar as consultas e lidar com falhas |
 | `markKey` | Como separar marcações de construções diferentes |
 | `remaining` e `markedRows` | Como calcular Faltam e o custo restante |
-| `viewItems`, `viewMarked`, `viewHideout`, `viewBarters` | Como cada aba monta seu conteúdo |
+| `viewItems`, `viewMarked`, `viewHideout`, `viewBarters`, `viewQuests` | Como cada aba monta seu conteúdo |
 | `render` | Como o conteúdo escolhido chega à tela |
 | `addEventListener` | Como o código recebe cliques e digitação |
 
@@ -82,7 +82,7 @@ const remaining = mark => Math.max(0, mark.qty - mark.owned);
 
 Se o preço estimado for 20.000 ₽ e faltarem 6, o custo restante será `6 * 20000`, ou 120.000 ₽. Quando não há preço conhecido e ainda faltam unidades, o custo aparece como **—**. Quando não falta nada, o custo restante é zero, mesmo sem preço disponível.
 
-`setMarkedQuantity()` recebe o campo editado, valida a quantidade, salva e chama `updateMarkedNumbers()`. Essa última função atualiza os números sem recriar o campo durante a digitação.
+`collectOne()` recebe o produto do botão azul, acrescenta uma unidade ao estoque agrupado e distribui esse estoque entre as origens sem duplicar unidades. Em seguida salva e redesenha a aba. Quando não falta mais nenhuma unidade, as marcações desse produto são removidas automaticamente.
 
 ## 5. Por que o mesmo item não marca todas as construções?
 
@@ -152,3 +152,15 @@ Faça os exercícios em uma cópia do arquivo ou em uma branch de estudo:
 5. Procure **Application/Aplicativo → Local Storage** (o nome varia conforme o navegador) para visualizar `tkv-app`. Observe sem apagar ou editar seu progresso.
 
 No GitHub Desktop, use **Fetch origin** e depois **Pull origin**, quando disponível, para receber esta versão comentada. Em **Changes**, você pode comparar suas experiências antes de criar um commit. Comentários em HTML usam `<!-- ... -->`; em CSS usam `/* ... */`; em JavaScript deste arquivo usam `//`.
+
+
+## 10. Como a aba Missões funciona
+
+- `localized(mode, 'tasks')` consulta as missões e os textos traduzidos. Elas são carregadas uma vez por modo enquanto a página está aberta, sem novo download a cada atualização de preços.
+- `normalizeTasks()` traduz nomes e descrições de objetivos e organiza IDs de trader, níveis mínimos, facções e pré-requisitos.
+- `DB.traders` guarda nomes e endereços das fotos; `DB.taskMap` permite localizar uma missão pelo ID.
+- `viewQuests()` monta os botões com retratos, o progresso do trader e as missões agrupadas pelo `minPlayerLevel`, que é o nível mínimo do jogador, não a lealdade do trader.
+- `setQuestDone()` registra ou remove a conclusão em `S.questDone[S.mode][id]`. As escolhas são manuais e independentes entre PVE e PVP.
+- `S.questOpen` preserva as seções de níveis e objetivos abertas. Assim, marcar uma tarefa não fecha as seções que a pessoa estava lendo.
+
+A fonte fornece descrições dos objetivos; o aplicativo não cria diálogos narrativos ausentes. Missões anteriores, facção e outros requisitos podem impedir o acesso mesmo após atingir o nível indicado. Os campos de busca, nível e situação filtram apenas as missões do trader selecionado.

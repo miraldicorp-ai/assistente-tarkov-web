@@ -9,6 +9,8 @@ Aplicação em português para consultar itens e preços de Escape from Tarkov e
 - Marcações independentes por estação e nível do Hideout.
 - Quantidade que já tenho, quantidade que falta e custo restante.
 - Consulta de trocas e requisitos das construções.
+- Missões por trader, com foto, nível mínimo do jogador, descrição dos objetivos e caixa de conclusão.
+- Progresso de missões salvo separadamente para PVE e PVP, com filtros por nível e conclusão.
 - Salvamento automático de marcações e progresso no navegador.
 
 ## Como usar
@@ -30,6 +32,12 @@ Use o mesmo arquivo ou endereço no mesmo perfil do navegador para continuar de 
 ## Aprender com o código
 
 O `index.html` inclui comentários em português nas principais partes de HTML, CSS e JavaScript. Comece pelo [guia do código](GUIA-DO-CODIGO.md), com um mapa das funções, explicações das ferramentas, exemplos de cálculos e exercícios para experimentar.
+
+## Missões
+
+Na aba **Missões**, selecione a foto de um trader. As tarefas são agrupadas pelo nível mínimo do jogador e incluem a descrição dos objetivos, quantidades e pré-requisitos fornecidos pelo tarkov.dev. Marque **Concluída** para registrar o progresso; desmarque para desfazer.
+
+O nível mínimo não garante que a missão esteja liberada: facção, missões anteriores e outros requisitos também podem ser necessários. O progresso é manual e fica salvo neste navegador, separadamente para PVE e PVP. As descrições disponíveis são as dos objetivos; a fonte não fornece os diálogos narrativos completos.
 
 ## Créditos
 

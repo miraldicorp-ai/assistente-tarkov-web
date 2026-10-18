@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tarkov – Itens, Hideout e Trocas</title>
+<title>Tarkov – Itens, Hideout, Trocas e Missões</title>
 <!-- 2. CSS: define a aparência. Os estilos ficam neste arquivo para permitir abrir o aplicativo diretamente no navegador. -->
 <style>
 /* Tema: variáveis CSS iniciadas por -- guardam as cores. var(--gold), por exemplo, reutiliza a cor de destaque em vários componentes. */
@@ -77,6 +77,35 @@ input.q{width:70px}
 .collect-button:hover{filter:brightness(1.15);border-color:#1763b6}
 .collect-button:active{filter:brightness(.95);box-shadow:inset 1px 2px 4px #002e75,0 0 1px #0008}
 .collect-button:focus-visible{outline:2px solid var(--txt);outline-offset:3px}
+/* Missões: seleção por foto do trader, progresso e grupos por nível do jogador. */
+.quest-traders{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px;margin:12px 0 18px}
+.quest-trader{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 6px;background:var(--panel);min-width:0}
+.quest-trader img{width:64px;height:64px;border-radius:50%;object-fit:cover;background:#101116;border:2px solid var(--line)}
+.quest-trader[aria-pressed=true]{border-color:var(--gold);background:#2a2615;color:var(--gold)}
+.quest-trader[aria-pressed=true] img{border-color:var(--gold)}
+.quest-trader small{color:var(--mut);font-size:11px}
+.quest-profile{display:flex;gap:14px;align-items:center;margin-bottom:16px;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.quest-profile img{width:80px;height:80px;border-radius:8px;object-fit:cover;background:#101116}
+.quest-profile h2{margin:0 0 4px;font-size:20px;color:var(--gold)}
+.quest-profile progress{display:block;width:min(360px,100%);height:9px;margin-top:8px;accent-color:var(--grn)}
+.quest-profile>div{flex:1;min-width:0}
+.quest-level>summary{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.quest-level>summary small{font-weight:400;color:var(--mut)}
+.quest-card{border-top:1px solid var(--line);padding:12px 0}
+.quest-card-head{display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+.quest-card h3{font-size:15px;margin:0}
+.quest-card.complete h3{color:var(--grn)}
+.quest-card.complete .quest-description{opacity:.7}
+.quest-check{display:inline-flex;gap:7px;align-items:center;white-space:nowrap;color:var(--mut)}
+.quest-check input{accent-color:var(--grn);width:17px;height:17px;cursor:pointer}
+.quest-short{margin:8px 0;color:var(--txt);white-space:pre-line}
+.quest-description{margin:8px 0 0;border-color:var(--line);background:var(--panel2);font-size:13px}
+.quest-description summary{color:var(--gold);font-weight:500}
+.quest-description ul{padding-left:20px;margin:8px 0}
+.quest-description li{margin:7px 0;white-space:pre-line}
+.quest-note{font-size:12px;color:var(--mut)}
+.quest-level-label{color:var(--gold);font-size:12px;margin-left:7px;font-weight:400}
+@media(max-width:550px){.quest-traders{grid-template-columns:repeat(3,minmax(0,1fr))}.quest-trader img{width:54px;height:54px}.quest-profile img{width:64px;height:64px}.quest-card-head{gap:8px}.quest-level>summary{align-items:baseline;flex-wrap:wrap;gap:3px}}
 /* Responsividade: estas regras entram em ação em telas de até 800 px. A segunda regra mantém Tenho, Faltam e custo visíveis nos Marcados. */
 @media(max-width:800px){.row{grid-template-columns:30px 40px 1fr 110px}.row>:nth-child(5),.row>:nth-child(6){display:none}}
 @media(max-width:800px){.row.marked-row,.row.marked-head{grid-template-columns:30px 40px minmax(0,1fr) 110px}.row.marked-row>:nth-child(5){display:flex;grid-column:3 / -1;flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px}.row.marked-row>:nth-child(6){display:block;grid-column:3 / -1}.marked-row .q{width:90px}}
@@ -85,7 +114,7 @@ input.q{width:70px}
 <body>
 <!-- 3. Controles fixos: os atributos id permitem que o JavaScript encontre o status, a seleção PVE/PVP e o botão de atualização. -->
 <header>
-  <h1>⚔ TARKOV · Itens, Hideout &amp; Trocas</h1>
+  <h1>⚔ TARKOV · Itens, Hideout, Trocas &amp; Missões</h1>
   <span class="sp"></span>
   <span id="status">—</span>
   <span id="storage-status" role="status" title="Marcações e quantidades ficam no armazenamento deste navegador, neste computador."></span>
@@ -101,6 +130,7 @@ input.q{width:70px}
   <button data-tab="items">Itens</button>
   <button data-tab="hideout">Hideout</button>
   <button data-tab="barters">Trocas</button>
+  <button data-tab="quests">Missões</button>
 </nav>
 <!-- Área dinâmica: render() coloca aqui o HTML da aba selecionada. O navegador representa os elementos da página por meio do DOM. -->
 <main id="view"></main>
@@ -136,10 +166,17 @@ function fleaChange(item) {
 // ESTADO SALVO: DEF contém valores iniciais; S contém as escolhas e o progresso da pessoa.
 // JSON.parse converte o texto do localStorage em objeto. Object.assign combina os valores salvos com os padrões.
 // try/catch permite iniciar mesmo se o navegador bloquear a leitura ou se o texto salvo estiver inválido.
-const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, mode: 'pve', tab: 'items' };
+const DEF = { marked: {}, done: {}, categories: [], hideoutOpen: {}, questDone: { pve: {}, regular: {} }, questOpen: {}, questTrader: '', mode: 'pve', tab: 'items' };
 let S = (() => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem('tkv-app') || '{}')); } catch (e) { return { ...DEF }; } })();
 if (!['regular', 'pve'].includes(S.mode)) S.mode = 'pve';
-if (!['items', 'marked', 'hideout', 'barters'].includes(S.tab)) S.tab = 'items';
+if (!['items', 'marked', 'hideout', 'barters', 'quests'].includes(S.tab)) S.tab = 'items';
+// Conclusões são independentes por modo. Acrescenta campos sem apagar dados antigos.
+if (!S.questDone || typeof S.questDone !== 'object' || Array.isArray(S.questDone)) S.questDone = {};
+for (const mode of ['pve', 'regular']) {
+  if (!S.questDone[mode] || typeof S.questDone[mode] !== 'object' || Array.isArray(S.questDone[mode])) S.questDone[mode] = {};
+}
+if (!S.questOpen || typeof S.questOpen !== 'object' || Array.isArray(S.questOpen)) S.questOpen = {};
+if (typeof S.questTrader !== 'string') S.questTrader = '';
 // Limpa a preferência do ranking removido, preservando o restante do progresso.
 delete S.marketMover;
 if (!S.marked || typeof S.marked !== 'object') S.marked = {};
@@ -170,10 +207,10 @@ const save = () => {
 // ---------- dados ----------
 // DADOS EM MEMÓRIA: DB guarda as respostas da API apenas enquanto a página está aberta.
 // DB.map é um Map: permite localizar um item pelo ID usando get(id), sem percorrer a lista inteira.
-const DB = { items: [], map: new Map(), stations: [], barters: [], updated: null, errors: [] };
+const DB = { items: [], map: new Map(), stations: [], barters: [], traders: [], tasks: [], taskMap: new Map(), tasksState: 'idle', tasksError: '', updated: null, errors: [] };
 // UI guarda controles temporários: busca, ordenação e limite de resultados. As buscas não são salvas ao fechar.
 // hideoutOpen é restaurado de S; as categorias selecionadas ficam diretamente em S.categories e são salvas.
-const UI = { limit: 150, q: '', sort: 'price', onlyMarked: false, bq: '', btrader: '', bsort: 'profit', bOnlyMarked: false, hq: '', hideoutOpen: new Map(Object.entries(S.hideoutOpen)) };
+const UI = { limit: 150, q: '', sort: 'price', onlyMarked: false, bq: '', btrader: '', bsort: 'profit', bOnlyMarked: false, hq: '', tq: '', questStatus: 'all', questLevel: '', hideoutOpen: new Map(Object.entries(S.hideoutOpen)) };
 
 // As categorias vêm da classificação dos itens na API, sem depender do nome traduzido.
 const CATEGORIES = [
@@ -288,6 +325,22 @@ function normalizeItems(source, translate, traders, taxonomy = {}) {
   if (!items.length) throw new Error('A API retornou uma lista vazia');
   return items;
 }
+// A API associa missões ao ID do trader. Aqui traduzimos os nomes e os objetivos.
+// A descrição mostrada vem dos objetivos reais; não inventamos diálogos ausentes na API.
+function normalizeTasks(source, translate) {
+  if (!source || typeof source !== 'object') throw new Error('Lista de missões inválida');
+  return Object.values(source).map(task => ({
+    id: task.id, traderId: task.trader,
+    name: translate(task.name, task.normalizedName || task.id),
+    minPlayerLevel: Number.isFinite(task.minPlayerLevel) && task.minPlayerLevel > 0 ? task.minPlayerLevel : null,
+    faction: task.factionName || 'Any',
+    prerequisites: (task.taskRequirements || []).map(requirement => ({ id: requirement.task, statuses: requirement.status || [] })),
+    objectives: (task.objectives || []).map(objective => ({
+      description: translate(objective.description, 'Objetivo sem descrição disponível'),
+      count: objective.count, optional: !!objective.optional, foundInRaid: !!objective.foundInRaid
+    }))
+  }));
+}
 // ATUALIZAÇÃO COMPLETA: cada carregamento recebe uma versão. Se outra atualização começar antes do fim,
 // a resposta antiga será ignorada para não sobrescrever a seleção atual, especialmente ao trocar PVE/PVP.
 let loadVersion = 0;
@@ -298,17 +351,22 @@ async function loadAll() {
   DB.errors = [];
   // Os dados do modo anterior nunca são exibidos como preços do novo modo.
   if (DB.mode !== mode) {
-    Object.assign(DB, { items: [], map: new Map(), stations: [], barters: [], updated: null, mode });
+    Object.assign(DB, { items: [], map: new Map(), stations: [], barters: [], traders: [], tasks: [], taskMap: new Map(), tasksState: 'idle', tasksError: '', updated: null, mode });
+    UI.questLevel = '';
     render();
   }
+  // As missões são estáveis: carrega uma vez por modo, sem baixá-las a cada atualização de preços.
+  const needTasks = DB.tasksState !== 'ready';
+  if (needTasks) { DB.tasksState = 'loading'; DB.tasksError = ''; }
 // Promise.allSettled espera todas as consultas e informa quais deram certo e quais falharam.
 // Assim, uma falha em Trocas não impede o uso dos Itens que carregaram corretamente.
   const results = await Promise.allSettled([
     localized(mode, 'items'), localized(mode, 'hideout'),
-    getJSON(mode, 'barters'), localized(mode, 'traders')
+    getJSON(mode, 'barters'), localized(mode, 'traders'),
+    needTasks ? localized(mode, 'tasks') : Promise.resolve(null)
   ]);
   if (version !== loadVersion) return;
-  const names = ['Itens', 'Hideout', 'Trocas', 'Comerciantes'];
+  const names = ['Itens', 'Hideout', 'Trocas', 'Comerciantes', 'Missões'];
   results.forEach((result, index) => {
     if (result.status === 'rejected') DB.errors.push(names[index] + ': ' + result.reason.message);
   });
@@ -317,6 +375,19 @@ async function loadAll() {
   const traders = new Map(Object.values(traderData?.data || {}).map(trader => [trader.id, {
     ...trader, name: traderData.translate(trader.name, trader.normalizedName)
   }]));
+  if (traderData) DB.traders = [...traders.values()];
+  if (needTasks) {
+    const taskData = value(4);
+    try {
+      if (!taskData) throw new Error(results[4].reason?.message || 'Falha ao carregar missões');
+      DB.tasks = normalizeTasks(taskData.data.tasks, taskData.translate);
+      DB.taskMap = new Map(DB.tasks.map(task => [task.id, task]));
+      DB.tasksState = 'ready';
+    } catch (error) {
+      DB.tasksState = 'error'; DB.tasksError = error.message;
+      if (taskData) DB.errors.push('Missões: ' + error.message);
+    }
+  }
   const itemData = value(0);
   if (itemData) {
     try {
@@ -586,6 +657,83 @@ function viewBarters() {
     || '<div class="empty">Nenhuma troca encontrada.</div>'}`;
 }
 
+// MISSÕES: o progresso usa o ID da tarefa dentro do modo PVE/PVP.
+const questIsDone = id => !!S.questDone[S.mode][id];
+const questOpenKey = id => S.mode + ':' + id;
+const questIsOpen = (id, fallback = true) => S.questOpen[questOpenKey(id)] ?? fallback;
+const questSearchText = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function setQuestDone(id, checked) {
+  if (!DB.taskMap.has(id)) return;
+  if (checked) S.questDone[S.mode][id] = true;
+  else delete S.questDone[S.mode][id];
+  save(); render();
+}
+function questTraderImage(trader, sizeClass = '') {
+  return trader.imageLink ? `<img class="${sizeClass}" loading="lazy" src="${esc(trader.imageLink)}" alt="Foto de ${esc(trader.name)}">` : '<span aria-hidden="true">👤</span>';
+}
+function viewQuests() {
+  if (DB.tasksState === 'error') return `<div class="empty">Não foi possível carregar as missões.<br>${esc(DB.tasksError)}<p><button data-act="reloadTasks">Tentar novamente</button></p></div>`;
+  if (DB.tasksState !== 'ready') return '<div class="empty" role="status">Carregando missões e traders do tarkov.dev…</div>';
+  if (!DB.tasks.length) return '<div class="empty">A fonte de dados não retornou missões para este modo.</div>';
+  const traderIds = new Set(DB.tasks.map(task => task.traderId));
+  const traders = DB.traders.filter(trader => traderIds.has(trader.id));
+  traderIds.forEach(id => {
+    if (!traders.some(trader => trader.id === id)) traders.push({ id, name: 'Trader não identificado', imageLink: '' });
+  });
+  const selected = traders.find(trader => trader.id === S.questTrader) || traders[0];
+  const modeLabel = S.mode === 'pve' ? 'PVE' : 'PVP';
+  const allTraderTasks = DB.tasks.filter(task => task.traderId === selected.id);
+  const completed = allTraderTasks.filter(task => questIsDone(task.id)).length;
+  const query = questSearchText(UI.tq).trim();
+  const tasks = allTraderTasks.filter(task =>
+    (!query || questSearchText(task.name + ' ' + selected.name + ' ' + task.objectives.map(objective => objective.description).join(' ')).includes(query)) &&
+    (UI.questStatus === 'all' || (UI.questStatus === 'done' ? questIsDone(task.id) : !questIsDone(task.id))) &&
+    (!UI.questLevel || String(task.minPlayerLevel ?? 'unknown') === UI.questLevel));
+  const levelSort = (a, b) => (a ?? Infinity) - (b ?? Infinity);
+  const levels = [...new Set(allTraderTasks.map(task => task.minPlayerLevel))].sort(levelSort);
+  const groups = [...new Set(tasks.map(task => task.minPlayerLevel))].sort(levelSort);
+  const taskStatusLabels = { complete: 'concluída', failed: 'falhou', active: 'ativa', started: 'iniciada' };
+  const levelLabel = level => level == null ? 'Nível não informado' : 'Nível ' + level;
+  const traderButtons = traders.map(trader => {
+    const related = DB.tasks.filter(task => task.traderId === trader.id);
+    const done = related.filter(task => questIsDone(task.id)).length;
+    return `<button type="button" class="quest-trader" data-act="questTrader" data-id="${esc(trader.id)}" aria-pressed="${trader.id === selected.id}" aria-label="Missões de ${esc(trader.name)}: ${done} de ${related.length} concluídas">
+      ${questTraderImage(trader)}<span>${esc(trader.name)}</span><small>${done} / ${related.length} concluídas</small></button>`;
+  }).join('');
+  return `<p class="mut">Missões por trader e nível mínimo do jogador · progresso salvo neste PC para ${modeLabel}.</p>
+    <div class="quest-traders" aria-label="Selecione um trader">${traderButtons}</div>
+    <section class="quest-profile" aria-label="Progresso de ${esc(selected.name)}">${questTraderImage(selected)}<div>
+      <h2>${esc(selected.name)}</h2><span>${completed} de ${allTraderTasks.length} missões concluídas · ${modeLabel}</span>
+      <progress value="${completed}" max="${allTraderTasks.length}" aria-label="Progresso das missões de ${esc(selected.name)}"></progress></div></section>
+    <div class="bar"><input type="search" id="tq" placeholder="Buscar missão ou descrição dos objetivos…" value="${esc(UI.tq)}" aria-label="Buscar missão ou objetivo">
+      <select id="questStatus" aria-label="Filtrar por conclusão"><option value="all" ${UI.questStatus === 'all' ? 'selected' : ''}>Todas as missões</option><option value="pending" ${UI.questStatus === 'pending' ? 'selected' : ''}>Pendentes</option><option value="done" ${UI.questStatus === 'done' ? 'selected' : ''}>Concluídas</option></select>
+      <select id="questLevel" aria-label="Filtrar por nível mínimo do jogador"><option value="">Todos os níveis</option>${levels.map(level => `<option value="${level ?? 'unknown'}" ${UI.questLevel === String(level ?? 'unknown') ? 'selected' : ''}>${levelLabel(level)}</option>`).join('')}</select>
+      <span class="mut">${tasks.length} missão(ões)</span></div>
+    <p class="quest-note">O nível exibido é o mínimo do jogador. Outras missões, facção ou requisitos também podem ser necessários. As descrições abaixo são os objetivos fornecidos pelo tarkov.dev.</p>
+    ${groups.map(level => {
+      const levelTasks = tasks.filter(task => task.minPlayerLevel === level).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      const key = 'level:' + selected.id + ':' + (level ?? 'unknown');
+      return `<details class="quest-level" data-quest-open="${esc(questOpenKey(key))}" ${questIsOpen(key) ? 'open' : ''}>
+        <summary><span>${levelLabel(level)}</span><small>${levelTasks.filter(task => questIsDone(task.id)).length} / ${levelTasks.length} concluídas</small></summary>
+        ${levelTasks.map(task => {
+          const done = questIsDone(task.id), taskKey = 'task:' + task.id;
+          const requirements = task.prerequisites.map(requirement => {
+            const name = DB.taskMap.get(requirement.id)?.name || 'Missão não identificada';
+            return esc(name) + (requirement.statuses.length ? ' (' + requirement.statuses.map(status => esc(taskStatusLabels[status] || status)).join(' / ') + ')' : '');
+          });
+          return `<article class="quest-card ${done ? 'complete' : ''}" data-quest-id="${esc(task.id)}">
+            <div class="quest-card-head"><h3>${esc(task.name)}${task.faction !== 'Any' ? `<span class="quest-level-label">${esc(task.faction)}</span>` : ''}</h3>
+              <label class="quest-check"><input type="checkbox" data-act="questDone" data-id="${esc(task.id)}" ${done ? 'checked' : ''} aria-label="Marcar ${esc(task.name)} como concluída">Concluída</label></div>
+            <p class="quest-short">${esc(task.objectives[0]?.description || 'Descrição não disponibilizada pela fonte de dados.')}</p>
+            <details class="quest-description" data-quest-open="${esc(questOpenKey(taskKey))}" ${questIsOpen(taskKey, !!query) ? 'open' : ''}>
+              <summary>Descrição e objetivos · ${task.objectives.length}</summary>
+              <ul>${task.objectives.map(objective => `<li>${esc(objective.description)}${objective.count > 0 ? `<span class="mut"> · quantidade: ${esc(objective.count)}</span>` : ''}${objective.foundInRaid ? '<span class="mut"> · encontrado em raid</span>' : ''}${objective.optional ? '<span class="mut"> · opcional</span>' : ''}</li>`).join('') || '<li>Objetivos não informados.</li>'}</ul>
+              ${requirements.length ? `<p class="quest-note">Pré-requisitos informados: ${requirements.join('; ')}.</p>` : ''}
+            </details></article>`;
+        }).join('')}</details>`;
+    }).join('') || '<div class="empty">Nenhuma missão corresponde aos filtros deste trader.</div>'}`;
+}
+
 // ---------- render ----------
 // RENDERIZAÇÃO: escolhe a função da aba atual e substitui o conteúdo de #view usando innerHTML.
 // Antes da troca, registra as estações abertas; depois restaura o foco e a posição do cursor nos campos de busca.
@@ -593,6 +741,12 @@ function viewBarters() {
 function render() {
   // A lista é recriada ao marcar itens; conserva cada estação aberta ou fechada.
   let changed = false;
+  document.querySelectorAll('#view details[data-quest-open]').forEach(details => {
+    if (S.questOpen[details.dataset.questOpen] !== details.open) {
+      S.questOpen[details.dataset.questOpen] = details.open;
+      changed = true;
+    }
+  });
   document.querySelectorAll('#view details[data-station]').forEach(details => {
     UI.hideoutOpen.set(details.dataset.station, details.open);
     if (S.hideoutOpen[details.dataset.station] !== details.open) {
@@ -603,15 +757,15 @@ function render() {
   if (changed) save();
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
   $('#nmarked').textContent = markedRows().length;
-  const v = { items: viewItems, marked: viewMarked, hideout: viewHideout, barters: viewBarters }[S.tab];
-  if (!DB.items.length && !DB.stations.length && !DB.barters.length) {
+  const v = { items: viewItems, marked: viewMarked, hideout: viewHideout, barters: viewBarters, quests: viewQuests }[S.tab];
+  if (S.tab !== 'quests' && !DB.items.length && !DB.stations.length && !DB.barters.length && !DB.tasks.length) {
     $('#view').innerHTML = `<div class="empty">${DB.errors.length ? 'Não foi possível carregar os dados.<br>' + esc(DB.errors.join(' | ')) : 'Carregando dados do tarkov.dev…'}</div>`;
     return;
   }
   // preserva foco/cursor em campos de busca
   const act = document.activeElement, id = act && act.id, pos = act && act.selectionStart;
   $('#view').innerHTML = v();
-  if (id && $('#' + id) && /^(q|bq|hq)$/.test(id)) { const e = $('#' + id); e.focus(); try { e.setSelectionRange(pos, pos); } catch (_) {} }
+  if (id && $('#' + id) && /^(q|bq|hq|tq)$/.test(id)) { const e = $('#' + id); e.focus(); try { e.setSelectionRange(pos, pos); } catch (_) {} }
 }
 
 // ---------- eventos ----------
@@ -620,6 +774,11 @@ function render() {
 // A verificação isConnected ignora seções antigas removidas durante uma renderização.
 document.addEventListener('toggle', e => {
   const details = e.target;
+  if (details.isConnected && details.matches('details[data-quest-open]')) {
+    const key = details.dataset.questOpen;
+    if (S.questOpen[key] !== details.open) { S.questOpen[key] = details.open; save(); }
+    return;
+  }
   if (!details.isConnected || !details.matches('details[data-station]')) return;
   const id = details.dataset.station;
   if (S.hideoutOpen[id] === details.open) return;
@@ -634,6 +793,8 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const a = t.dataset.act;
   if (a === 'category') { toggleCategory(t.dataset.category); }
+  else if (a === 'questTrader') { S.questTrader = t.dataset.id; UI.questLevel = ''; save(); render(); }
+  else if (a === 'reloadTasks') { DB.tasksState = 'idle'; loadAll(); }
   else if (a === 'moreItems') { UI.limit += 150; render(); }
   else if (a === 'collectOne') { collectOne(t.dataset.id); }
   else if (a === 'unmarkItem') { unmarkItem(t.dataset.id); save(); render(); }
@@ -660,7 +821,10 @@ document.addEventListener('click', e => {
 // As mudanças em S chamam save(); as opções temporárias de UI são redesenhadas sem gravação permanente.
 document.addEventListener('change', e => {
   const t = e.target; const a = t.dataset && t.dataset.act;
-  if (a === 'done') { if (t.checked) S.done[t.dataset.key] = true; else delete S.done[t.dataset.key]; save(); render(); }
+  if (a === 'questDone') { setQuestDone(t.dataset.id, t.checked); }
+  else if (a === 'done') { if (t.checked) S.done[t.dataset.key] = true; else delete S.done[t.dataset.key]; save(); render(); }
+  else if (t.id === 'questStatus') { UI.questStatus = t.value; render(); }
+  else if (t.id === 'questLevel') { UI.questLevel = t.value; render(); }
   else if (t.id === 'sort') { UI.sort = t.value; render(); }
   else if (t.id === 'onlyMarked') { UI.onlyMarked = t.checked; render(); }
   else if (t.id === 'btrader') { UI.btrader = t.value; render(); }
@@ -672,7 +836,7 @@ document.addEventListener('change', e => {
 let deb;
 document.addEventListener('input', e => {
   const id = e.target.id;
-  if (!['q', 'bq', 'hq'].includes(id)) return;
+  if (!['q', 'bq', 'hq', 'tq'].includes(id)) return;
   clearTimeout(deb);
   deb = setTimeout(() => { UI[id] = e.target.value; UI.limit = 150; render(); }, 200);
 });
@@ -692,6 +856,7 @@ setInterval(loadAll, REFRESH_MS);
 </script>
 </body>
 </html>
+
 
 
 
