@@ -71,8 +71,10 @@ input.q{width:70px}
 .marked-row.complete{opacity:.65}
 .marked-remaining{margin-top:4px;font-weight:600}
 .owned-controls{display:flex;align-items:center;gap:10px}
-.collect-button{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;padding:0;border:1px solid var(--grn);border-radius:50%;background:var(--grn);color:#102416;font-size:24px;font-weight:700;line-height:1}
-.collect-button:hover{background:#8de09c;border-color:#8de09c}
+/* Botão azul com brilho e relevo inspirado na referência; tamanho reduzido para 30 px. */
+.collect-button{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;padding:0;border:2px solid #06428e;border-radius:50%;background:radial-gradient(circle at 76% 22%,#58bdff 0%,#1788fa 30%,#0960d7 66%,#003b97 100%);box-shadow:inset 1px 1px 2px #92d7ff,inset -2px -2px 3px #002e75,0 1px 2px #0008;color:#fff;font-size:20px;font-weight:700;line-height:1;text-shadow:0 1px 1px #003877}
+.collect-button:hover{filter:brightness(1.15);border-color:#1763b6}
+.collect-button:active{filter:brightness(.95);box-shadow:inset 1px 2px 4px #002e75,0 0 1px #0008}
 .collect-button:focus-visible{outline:2px solid var(--txt);outline-offset:3px}
 /* Responsividade: estas regras entram em ação em telas de até 800 px. A segunda regra mantém Tenho, Faltam e custo visíveis nos Marcados. */
 @media(max-width:800px){.row{grid-template-columns:30px 40px 1fr 110px}.row>:nth-child(5),.row>:nth-child(6){display:none}}
@@ -487,14 +489,14 @@ function collectOne(id) {
   render();
 }
 // ABA MARCADOS: cada produto ocupa uma linha com as necessidades de todas as origens somadas.
-// O botão verde incrementa Tenho; Faltam e custo são recalculados e itens completos saem automaticamente.
+// O botão azul incrementa Tenho; Faltam e custo são recalculados e itens completos saem automaticamente.
 function viewMarked() {
   const rows = markedRows();
   if (!rows.length) return '<div class="empty">Nenhum item marcado ainda.<br>Use a ★ na aba Itens, ou clique nos itens das abas Hideout e Trocas.</div>';
   const totalAll = sumPrices(rows.map(row => row.full)), totalPend = sumPrices(rows.map(row => row.sub));
   return `<div class="tot"><span>Itens marcados: <b>${rows.length}</b></span><span>Custo total necessário: <b id="marked-cost-total">${fmt(totalAll)}</b></span><span>Custo do que falta: <b id="marked-cost-remaining">${fmt(totalPend)}</b></span>
     <span class="sp"></span><button data-act="clearHave">Remover itens completos</button> <button data-act="clearAll">Limpar tudo</button></div>
-  <p class="mut">Clique no + verde para adicionar uma unidade. Ao completar a quantidade, o item é desmarcado em todas as origens.</p>
+  <p class="mut">Clique no + azul para adicionar uma unidade. Ao completar a quantidade, o item é desmarcado em todas as origens.</p>
   <div class="row hd marked-head"><span></span><span></span><span>Item</span><span>Preço un. estimado</span><span>Tenho / Faltam</span><span>Custo restante</span></div>
   ${rows.map(({ id, it, m, sources, p, missing, sub }) => `<div class="row hl marked-row ${missing === 0 ? 'complete' : ''}" data-marked-row="${esc(id)}">
     <button class="star on" data-act="unmarkItem" data-id="${esc(id)}" title="Desmarcar este item em todas as origens">★</button>
