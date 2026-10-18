@@ -70,6 +70,10 @@ input.q{width:70px}
 .row.marked-row,.row.marked-head{grid-template-columns:34px 48px minmax(0,1fr) 135px 210px 135px}
 .marked-row.complete{opacity:.65}
 .marked-remaining{margin-top:4px;font-weight:600}
+.owned-controls{display:flex;align-items:center;gap:10px}
+.collect-button{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-width:36px;padding:0;border:1px solid var(--grn);border-radius:50%;background:var(--grn);color:#102416;font-size:24px;font-weight:700;line-height:1}
+.collect-button:hover{background:#8de09c;border-color:#8de09c}
+.collect-button:focus-visible{outline:2px solid var(--txt);outline-offset:3px}
 /* Responsividade: estas regras entram em ação em telas de até 800 px. A segunda regra mantém Tenho, Faltam e custo visíveis nos Marcados. */
 @media(max-width:800px){.row{grid-template-columns:30px 40px 1fr 110px}.row>:nth-child(5),.row>:nth-child(6){display:none}}
 @media(max-width:800px){.row.marked-row,.row.marked-head{grid-template-columns:30px 40px minmax(0,1fr) 110px}.row.marked-row>:nth-child(5){display:flex;grid-column:3 / -1;flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px}.row.marked-row>:nth-child(6){display:block;grid-column:3 / -1}.marked-row .q{width:90px}}
@@ -463,54 +467,41 @@ function unmarkItem(id) {
     if ((mark.itemId || key) === id) delete S.marked[key];
   }
 }
-// ATUALIZAÇÃO PARCIAL DO DOM: altera apenas textos, totais e a classe complete enquanto a pessoa digita.
-// Isso evita recriar o campo Tenho e perder o foco durante a digitação. textContent insere texto, sem interpretar HTML.
-function updateMarkedNumbers() {
-  const rows = markedRows(), byId = new Map(rows.map(row => [row.id, row]));
-  if (!$('#marked-cost-remaining')) return;
-  $('#marked-cost-total').textContent = fmt(sumPrices(rows.map(row => row.full)));
-  $('#marked-cost-remaining').textContent = fmt(sumPrices(rows.map(row => row.sub)));
-  document.querySelectorAll('[data-marked-row]').forEach(element => {
-    const row = byId.get(element.dataset.markedRow);
-    if (!row) return;
-    element.classList.toggle('complete', row.missing === 0);
-    const missing = element.querySelector('[data-missing]');
-    missing.textContent = row.missing === 0 ? 'Completo · não falta nenhum' : 'Faltam: ' + row.missing;
-    missing.className = 'marked-remaining ' + (row.missing === 0 ? 'pos' : '');
-    element.querySelector('[data-remaining-cost]').textContent = fmt(row.sub);
-  });
-}
-// Lê apenas o campo Tenho, converte o texto em número e elimina valores negativos, decimais ou não finitos.
-// Distribui o total Tenho entre as origens para não contar o mesmo estoque duas vezes.
-function setMarkedQuantity(target) {
-  if (target.dataset.act !== 'owned') return;
-  const group = markedRows().find(row => row.id === target.dataset.id);
+// Cada clique registra uma unidade no estoque total do produto agrupado.
+// Quando a última unidade necessária é registrada, remove todas as suas marcações.
+function collectOne(id) {
+  const group = markedRows().find(row => row.id === id);
   if (!group) return;
-  const value = Number(target.value);
-  let available = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
-  group.keys.forEach((key, index) => {
-    const mark = S.marked[key];
-    mark.owned = index === group.keys.length - 1 ? available : Math.min(mark.qty, available);
-    available -= mark.owned;
-  });
+  if (group.missing <= 1) {
+    unmarkItem(id);
+  } else {
+    // Distribui o estoque entre as origens sem duplicar unidades.
+    let available = group.m.owned + 1;
+    group.keys.forEach(key => {
+      const mark = S.marked[key];
+      mark.owned = Math.min(mark.qty, available);
+      available -= mark.owned;
+    });
+  }
   save();
-  updateMarkedNumbers();
+  render();
 }
 // ABA MARCADOS: cada produto ocupa uma linha com as necessidades de todas as origens somadas.
-// O campo Tenho edita owned; Faltam é um resultado calculado. aria-live anuncia alterações para leitores de tela.
+// O botão verde incrementa Tenho; Faltam e custo são recalculados e itens completos saem automaticamente.
 function viewMarked() {
   const rows = markedRows();
   if (!rows.length) return '<div class="empty">Nenhum item marcado ainda.<br>Use a ★ na aba Itens, ou clique nos itens das abas Hideout e Trocas.</div>';
   const totalAll = sumPrices(rows.map(row => row.full)), totalPend = sumPrices(rows.map(row => row.sub));
   return `<div class="tot"><span>Itens marcados: <b>${rows.length}</b></span><span>Custo total necessário: <b id="marked-cost-total">${fmt(totalAll)}</b></span><span>Custo do que falta: <b id="marked-cost-remaining">${fmt(totalPend)}</b></span>
     <span class="sp"></span><button data-act="clearHave">Remover itens completos</button> <button data-act="clearAll">Limpar tudo</button></div>
+  <p class="mut">Clique no + verde para adicionar uma unidade. Ao completar a quantidade, o item é desmarcado em todas as origens.</p>
   <div class="row hd marked-head"><span></span><span></span><span>Item</span><span>Preço un. estimado</span><span>Tenho / Faltam</span><span>Custo restante</span></div>
   ${rows.map(({ id, it, m, sources, p, missing, sub }) => `<div class="row hl marked-row ${missing === 0 ? 'complete' : ''}" data-marked-row="${esc(id)}">
     <button class="star on" data-act="unmarkItem" data-id="${esc(id)}" title="Desmarcar este item em todas as origens">★</button>
     ${it ? `<img loading="lazy" src="${esc(it.iconLink)}" alt="">` : '<span></span>'}
     <div class="name">${esc(it ? it.name : id)}<small>${esc(it ? it.shortName : '')}</small><div class="mut">${sources.map(source => source ? 'Hideout · ' + esc(DB.stations.find(station => station.id === source.stationId)?.name || source.stationName || source.stationId) + ' · Nível ' + esc(source.level) : 'Marcação geral').join(' / ')}</div><div class="mut">Total necessário: ${esc(m.qty)}</div></div>
     <div class="p">${fmt(p)}</div>
-    <div class="p marked-quantity"><label>Tenho <input class="q" type="number" min="0" step="1" value="${esc(m.owned)}" data-act="owned" data-id="${esc(id)}" aria-label="Quantidade que já tenho de ${esc(it ? it.name : id)}"></label><span data-missing class="marked-remaining ${missing === 0 ? 'pos' : ''}" aria-live="polite">${missing === 0 ? 'Completo · não falta nenhum' : 'Faltam: ' + missing}</span></div>
+    <div class="p marked-quantity"><div class="owned-controls"><span>Tenho <b>${esc(m.owned)}</b></span><button type="button" class="collect-button" data-act="collectOne" data-id="${esc(id)}" title="Adicionar 1 unidade; ao completar, o item será desmarcado" aria-label="Adicionar uma unidade de ${esc(it ? it.name : id)}">+</button></div><span data-missing class="marked-remaining ${missing === 0 ? 'pos' : ''}" aria-live="polite">${missing === 0 ? 'Completo · não falta nenhum' : 'Faltam: ' + missing}</span></div>
     <div class="p"><small>Custo restante</small><span data-remaining-cost>${fmt(sub)}</span></div></div>`).join('')}`;
 }
 
@@ -627,6 +618,7 @@ document.addEventListener('click', e => {
   const a = t.dataset.act;
   if (a === 'category') { toggleCategory(t.dataset.category); }
   else if (a === 'moreItems') { UI.limit += 150; render(); }
+  else if (a === 'collectOne') { collectOne(t.dataset.id); }
   else if (a === 'unmarkItem') { unmarkItem(t.dataset.id); save(); render(); }
   else if (a === 'mark') {
     let source;
@@ -647,30 +639,21 @@ document.addEventListener('click', e => {
   else if (a === 'clearHave') { markedRows().filter(row => row.missing === 0).forEach(row => unmarkItem(row.id)); save(); render(); }
   else if (a === 'clearAll') { if (confirm('Remover todos os itens marcados?')) { S.marked = {}; save(); render(); } }
 });
-// change trata escolhas concluídas: confirmação de Tenho, níveis concluídos, ordenação e filtros.
+// change trata escolhas concluídas: níveis concluídos, ordenação e filtros.
 // As mudanças em S chamam save(); as opções temporárias de UI são redesenhadas sem gravação permanente.
 document.addEventListener('change', e => {
   const t = e.target; const a = t.dataset && t.dataset.act;
-  if (a === 'owned') {
-    setMarkedQuantity(t);
-    const row = markedRows().find(row => row.id === t.dataset.id);
-    if (row) t.value = row.m.owned;
-  }
-  else if (a === 'done') { if (t.checked) S.done[t.dataset.key] = true; else delete S.done[t.dataset.key]; save(); render(); }
+  if (a === 'done') { if (t.checked) S.done[t.dataset.key] = true; else delete S.done[t.dataset.key]; save(); render(); }
   else if (t.id === 'sort') { UI.sort = t.value; render(); }
   else if (t.id === 'onlyMarked') { UI.onlyMarked = t.checked; render(); }
   else if (t.id === 'btrader') { UI.btrader = t.value; render(); }
   else if (t.id === 'bsort') { UI.bsort = t.value; render(); }
   else if (t.id === 'bOnlyMarked') { UI.bOnlyMarked = t.checked; render(); }
 });
-// input acontece durante a digitação. Tenho é salvo e recalculado imediatamente.
+// input acompanha a digitação dos campos de busca.
 // Para as buscas, o debounce cancela a espera anterior e aguarda 200 ms sem digitação antes de filtrar, reduzindo redesenhos.
 let deb;
 document.addEventListener('input', e => {
-  if (e.target.dataset?.act === 'owned' && hasMarkedItem(e.target.dataset.id)) {
-    setMarkedQuantity(e.target);
-    return;
-  }
   const id = e.target.id;
   if (!['q', 'bq', 'hq'].includes(id)) return;
   clearTimeout(deb);
